@@ -63,8 +63,6 @@ Shader "AmplifyShaderPack/Terrain/Simple"
         [HideInInspector][NoScaleOffset] unity_Lightmaps("unity_Lightmaps", 2DArray) = "" {}
         [HideInInspector][NoScaleOffset] unity_LightmapsInd("unity_LightmapsInd", 2DArray) = "" {}
         [HideInInspector][NoScaleOffset] unity_ShadowMasks("unity_ShadowMasks", 2DArray) = "" {}
-
-		//[HideInInspector][ToggleUI] _AddPrecomputedVelocity("Add Precomputed Velocity", Float) = 1
 	}
 
 	SubShader
@@ -75,7 +73,7 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 
 		
 
-		Tags { "RenderPipeline"="UniversalPipeline" "RenderType"="Opaque" "Queue"="Geometry-100" "UniversalMaterialType"="Lit" "AlwaysRenderMotionVectors"="false" "TerrainCompatible"="True" }
+		Tags { "RenderPipeline"="UniversalPipeline" "RenderType"="Opaque" "Queue"="Geometry-100" "UniversalMaterialType"="Lit" "TerrainCompatible"="True" }
 
 		Cull Back
 		ZWrite On
@@ -219,6 +217,8 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 
 			HLSLPROGRAM
 
+			
+
 			#define ASE_GEOMETRY
 			#pragma multi_compile_local_fragment _ALPHATEST_ON
 			#define _NORMAL_DROPOFF_TS 1
@@ -229,28 +229,41 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#define ASE_FINAL_COLOR_ALPHA_MULTIPLY 1
 			#define _NORMALMAP 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 			#define ASE_USING_SAMPLING_MACROS 1
 
 
+			
+
 			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
 			#pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
+
+			
             #pragma multi_compile _ EVALUATE_SH_MIXED EVALUATE_SH_VERTEX
+		
+
 			#pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
 			#pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
 			#pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+
+			
+
+			
 			#pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+           
+
 			#pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
 			#pragma multi_compile _ _LIGHT_LAYERS
 			#pragma multi_compile_fragment _ _LIGHT_COOKIES
 			#pragma multi_compile _ _FORWARD_PLUS
+
+			
 
 			#pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
 			#pragma multi_compile _ SHADOWS_SHADOWMASK
 			#pragma multi_compile _ DIRLIGHTMAP_COMBINED
 			#pragma multi_compile _ LIGHTMAP_ON
 			#pragma multi_compile _ DYNAMICLIGHTMAP_ON
-			#pragma multi_compile _ USE_LEGACY_LIGHTMAPS
 
 			#pragma vertex vert
 			#pragma fragment frag
@@ -261,18 +274,35 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 
 			#define SHADERPASS SHADERPASS_FORWARD
 
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
+			
+			#if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
-            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
+			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
@@ -335,10 +365,7 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 				#if defined(DYNAMICLIGHTMAP_ON)
 					float2 dynamicLightmapUV : TEXCOORD5;
 				#endif
-				#if defined(USE_APV_PROBE_OCCLUSION)
-					float4 probeOcclusion : TEXCOORD6;
-				#endif
-				float4 ase_texcoord7 : TEXCOORD7;
+				float4 ase_texcoord6 : TEXCOORD6;
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 				UNITY_VERTEX_OUTPUT_STEREO
 			};
@@ -464,9 +491,9 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 				float2 break291_g37 = _Control_ST.zw;
 				float2 appendResult293_g37 = (float2(( break291_g37.x + 0.001 ) , ( break291_g37.y + 0.0001 )));
 				float2 vertexToFrag286_g37 = ( ( input.texcoord.xy * _Control_ST.xy ) + appendResult293_g37 );
-				output.ase_texcoord7.xy = vertexToFrag286_g37;
+				output.ase_texcoord6.xy = vertexToFrag286_g37;
 				
-				output.ase_texcoord7.zw = input.texcoord.xy;
+				output.ase_texcoord6.zw = input.texcoord.xy;
 
 				#ifdef ASE_ABSOLUTE_VERTEX_POS
 					float3 defaultVertexValue = input.positionOS.xyz;
@@ -487,11 +514,14 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 				VertexPositionInputs vertexInput = GetVertexPositionInputs( input.positionOS.xyz );
 				VertexNormalInputs normalInput = GetVertexNormalInputs( input.normalOS, input.tangentOS );
 
-				OUTPUT_LIGHTMAP_UV(input.texcoord1, unity_LightmapST, output.lightmapUVOrVertexSH.xy);
+				#if defined(LIGHTMAP_ON)
+					OUTPUT_LIGHTMAP_UV(input.texcoord1, unity_LightmapST, output.lightmapUVOrVertexSH.xy);
+				#else
+					OUTPUT_SH(normalInput.normalWS.xyz, output.lightmapUVOrVertexSH.xyz);
+				#endif
 				#if defined(DYNAMICLIGHTMAP_ON)
 					output.dynamicLightmapUV.xy = input.texcoord2.xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
 				#endif
-				OUTPUT_SH4(vertexInput.positionWS, normalInput.normalWS.xyz, GetWorldSpaceNormalizeViewDir(vertexInput.positionWS), output.lightmapUVOrVertexSH.xyz, output.probeOcclusion);
 
 				#if defined(ASE_FOG) || defined(_ADDITIONAL_LIGHTS_VERTEX)
 					output.fogFactorAndVertexLight = 0;
@@ -668,7 +698,7 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 					BitangentWS = cross(NormalWS, -TangentWS);
 				#endif
 
-				float2 vertexToFrag286_g37 = input.ase_texcoord7.xy;
+				float2 vertexToFrag286_g37 = input.ase_texcoord6.xy;
 				float4 tex2DNode283_g37 = SAMPLE_TEXTURE2D( _Control, sampler_Control, vertexToFrag286_g37 );
 				float dotResult278_g37 = dot( tex2DNode283_g37 , half4( 1, 1, 1, 1 ) );
 				float localSplatClip276_g37 = ( dotResult278_g37 );
@@ -679,22 +709,22 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 				#endif
 				}
 				float4 Control26_g37 = ( tex2DNode283_g37 / ( localSplatClip276_g37 + 0.001 ) );
-				float2 uv_Splat0 = input.ase_texcoord7.zw * _Splat0_ST.xy + _Splat0_ST.zw;
+				float2 uv_Splat0 = input.ase_texcoord6.zw * _Splat0_ST.xy + _Splat0_ST.zw;
 				float4 tex2DNode414_g37 = SAMPLE_TEXTURE2D( _Splat0, sampler_Splat0, uv_Splat0 );
 				float3 Splat0342_g37 = (tex2DNode414_g37).rgb;
-				float2 uv_Splat1 = input.ase_texcoord7.zw * _Splat1_ST.xy + _Splat1_ST.zw;
+				float2 uv_Splat1 = input.ase_texcoord6.zw * _Splat1_ST.xy + _Splat1_ST.zw;
 				float4 tex2DNode420_g37 = SAMPLE_TEXTURE2D( _Splat1, sampler_Splat0, uv_Splat1 );
 				float3 Splat1379_g37 = (tex2DNode420_g37).rgb;
-				float2 uv_Splat2 = input.ase_texcoord7.zw * _Splat2_ST.xy + _Splat2_ST.zw;
+				float2 uv_Splat2 = input.ase_texcoord6.zw * _Splat2_ST.xy + _Splat2_ST.zw;
 				float4 tex2DNode417_g37 = SAMPLE_TEXTURE2D( _Splat2, sampler_Splat0, uv_Splat2 );
 				float3 Splat2357_g37 = (tex2DNode417_g37).rgb;
-				float2 uv_Splat3 = input.ase_texcoord7.zw * _Splat3_ST.xy + _Splat3_ST.zw;
+				float2 uv_Splat3 = input.ase_texcoord6.zw * _Splat3_ST.xy + _Splat3_ST.zw;
 				float4 tex2DNode423_g37 = SAMPLE_TEXTURE2D( _Splat3, sampler_Splat0, uv_Splat3 );
 				float3 Splat3390_g37 = (tex2DNode423_g37).rgb;
 				float4 weightedBlendVar9_g37 = Control26_g37;
 				float3 weightedBlend9_g37 = ( weightedBlendVar9_g37.x*( Splat0342_g37 * (_DiffuseRemapScale0).rgb ) + weightedBlendVar9_g37.y*( Splat1379_g37 * (_DiffuseRemapScale1).rgb ) + weightedBlendVar9_g37.z*( Splat2357_g37 * (_DiffuseRemapScale2).rgb ) + weightedBlendVar9_g37.w*( Splat3390_g37 * (_DiffuseRemapScale3).rgb ) );
 				float3 localClipHoles453_g37 = ( weightedBlend9_g37 );
-				float2 uv_TerrainHolesTexture = input.ase_texcoord7.zw * _TerrainHolesTexture_ST.xy + _TerrainHolesTexture_ST.zw;
+				float2 uv_TerrainHolesTexture = input.ase_texcoord6.zw * _TerrainHolesTexture_ST.xy + _TerrainHolesTexture_ST.zw;
 				float Hole453_g37 = SAMPLE_TEXTURE2D( _TerrainHolesTexture, sampler_TerrainHolesTexture, uv_TerrainHolesTexture ).r;
 				{
 				#ifdef _ALPHATEST_ON
@@ -819,22 +849,15 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 
 				#if defined(DYNAMICLIGHTMAP_ON)
 					inputData.bakedGI = SAMPLE_GI(input.lightmapUVOrVertexSH.xy, input.dynamicLightmapUV.xy, SH, inputData.normalWS);
-					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVOrVertexSH.xy);
-				#elif !defined(LIGHTMAP_ON) && (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2))
-					inputData.bakedGI = SAMPLE_GI( SH, GetAbsolutePositionWS(inputData.positionWS),
-						inputData.normalWS,
-						inputData.viewDirectionWS,
-						input.positionCS.xy,
-						input.probeOcclusion,
-						inputData.shadowMask );
 				#else
 					inputData.bakedGI = SAMPLE_GI(input.lightmapUVOrVertexSH.xy, SH, inputData.normalWS);
-					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVOrVertexSH.xy);
 				#endif
 
 				#ifdef ASE_BAKEDGI
 					inputData.bakedGI = BakedGI;
 				#endif
+
+				inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVOrVertexSH.xy);
 
 				#if defined(DEBUG_DISPLAY)
 					#if defined(DYNAMICLIGHTMAP_ON)
@@ -844,9 +867,6 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 						inputData.staticLightmapUV = input.lightmapUVOrVertexSH.xy;
 					#else
 						inputData.vertexSH = SH;
-					#endif
-					#if defined(USE_APV_PROBE_OCCLUSION)
-						inputData.probeOcclusion = input.probeOcclusion;
 					#endif
 				#endif
 
@@ -893,7 +913,7 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 						uint meshRenderingLayers = GetMeshRenderingLayer();
 						uint pixelLightCount = GetAdditionalLightsCount();
 						#if USE_FORWARD_PLUS
-							[loop] for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
+							for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
 							{
 								FORWARD_PLUS_SUBTRACTIVE_LIGHT_CHECK
 
@@ -942,7 +962,7 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 						uint meshRenderingLayers = GetMeshRenderingLayer();
 						uint pixelLightCount = GetAdditionalLightsCount();
 						#if USE_FORWARD_PLUS
-							[loop] for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
+							for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
 							{
 								FORWARD_PLUS_SUBTRACTIVE_LIGHT_CHECK
 
@@ -1018,6 +1038,8 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 
 			HLSLPROGRAM
 
+			
+
 			#define ASE_GEOMETRY
 			#pragma multi_compile_local _ALPHATEST_ON
 			#define _NORMAL_DROPOFF_TS 1
@@ -1026,9 +1048,11 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#define ASE_FINAL_COLOR_ALPHA_MULTIPLY 1
 			#define _NORMALMAP 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 			#define ASE_USING_SAMPLING_MACROS 1
 
+
+			
 
 			#pragma vertex vert
 			#pragma fragment frag
@@ -1039,16 +1063,29 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 
 			#define SHADERPASS SHADERPASS_DEPTHONLY
 
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
-            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
+			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 
@@ -1378,7 +1415,7 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#define ASE_FINAL_COLOR_ALPHA_MULTIPLY 1
 			#define _NORMALMAP 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 			#define ASE_USING_SAMPLING_MACROS 1
 
 			#pragma shader_feature EDITOR_VISUALIZATION
@@ -1398,9 +1435,17 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
-            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
+			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/MetaInput.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
@@ -1765,7 +1810,7 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#define ASE_FINAL_COLOR_ALPHA_MULTIPLY 1
 			#define _NORMALMAP 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 			#define ASE_USING_SAMPLING_MACROS 1
 
 
@@ -1784,9 +1829,17 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
-            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
+			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 
@@ -2122,6 +2175,10 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 
 			HLSLPROGRAM
 
+			
+
+			
+
 			#define ASE_GEOMETRY
 			#pragma multi_compile_local _ALPHATEST_ON
 			#define _NORMAL_DROPOFF_TS 1
@@ -2130,9 +2187,13 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#define ASE_FINAL_COLOR_ALPHA_MULTIPLY 1
 			#define _NORMALMAP 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 			#define ASE_USING_SAMPLING_MACROS 1
 
+
+			
+
+			
 
 			#pragma vertex vert
 			#pragma fragment frag
@@ -2144,17 +2205,35 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#define SHADERPASS SHADERPASS_DEPTHNORMALSONLY
 			//#define SHADERPASS SHADERPASS_DEPTHNORMALS
 
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
+			
+			#if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
-            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
+			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 
@@ -2579,6 +2658,8 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 
 			HLSLPROGRAM
 
+			
+
 			#define ASE_GEOMETRY
 			#pragma multi_compile_local_fragment _ALPHATEST_ON
 			#define _NORMAL_DROPOFF_TS 1
@@ -2588,23 +2669,32 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#define ASE_FINAL_COLOR_ALPHA_MULTIPLY 1
 			#define _NORMALMAP 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 			#define ASE_USING_SAMPLING_MACROS 1
 
+
+			
 
 			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
 			#pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
 			#pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+
+			
+
+			
 			#pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+           
+
 			#pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
 			#pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
 			#pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
+
+			
 
 			#pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
 			#pragma multi_compile _ _MIXED_LIGHTING_SUBTRACTIVE
 			#pragma multi_compile _ SHADOWS_SHADOWMASK
 			#pragma multi_compile _ DIRLIGHTMAP_COMBINED
-			#pragma multi_compile _ USE_LEGACY_LIGHTMAPS
 			#pragma multi_compile _ LIGHTMAP_ON
 			#pragma multi_compile _ DYNAMICLIGHTMAP_ON
 
@@ -2617,18 +2707,35 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 
 			#define SHADERPASS SHADERPASS_GBUFFER
 
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
+			
+			#if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
-            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
+			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
@@ -2691,10 +2798,7 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 				#if defined(DYNAMICLIGHTMAP_ON)
 					float2 dynamicLightmapUV : TEXCOORD5;
 				#endif
-				#if defined(USE_APV_PROBE_OCCLUSION)
-					float4 probeOcclusion : TEXCOORD6;
-				#endif
-				float4 ase_texcoord7 : TEXCOORD7;
+				float4 ase_texcoord6 : TEXCOORD6;
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 				UNITY_VERTEX_OUTPUT_STEREO
 			};
@@ -2822,9 +2926,9 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 				float2 break291_g37 = _Control_ST.zw;
 				float2 appendResult293_g37 = (float2(( break291_g37.x + 0.001 ) , ( break291_g37.y + 0.0001 )));
 				float2 vertexToFrag286_g37 = ( ( input.texcoord.xy * _Control_ST.xy ) + appendResult293_g37 );
-				output.ase_texcoord7.xy = vertexToFrag286_g37;
+				output.ase_texcoord6.xy = vertexToFrag286_g37;
 				
-				output.ase_texcoord7.zw = input.texcoord.xy;
+				output.ase_texcoord6.zw = input.texcoord.xy;
 				#ifdef ASE_ABSOLUTE_VERTEX_POS
 					float3 defaultVertexValue = input.positionOS.xyz;
 				#else
@@ -2845,11 +2949,14 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 				VertexPositionInputs vertexInput = GetVertexPositionInputs( input.positionOS.xyz );
 				VertexNormalInputs normalInput = GetVertexNormalInputs( input.normalOS, input.tangentOS );
 
-				OUTPUT_LIGHTMAP_UV(input.texcoord1, unity_LightmapST, output.lightmapUVOrVertexSH.xy);
+				#if defined(LIGHTMAP_ON)
+					OUTPUT_LIGHTMAP_UV(input.texcoord1, unity_LightmapST, output.lightmapUVOrVertexSH.xy);
+				#else
+					OUTPUT_SH(normalInput.normalWS.xyz, output.lightmapUVOrVertexSH.xyz);
+				#endif
 				#if defined(DYNAMICLIGHTMAP_ON)
 					output.dynamicLightmapUV.xy = input.texcoord2.xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
 				#endif
-				OUTPUT_SH4(vertexInput.positionWS, normalInput.normalWS.xyz, GetWorldSpaceNormalizeViewDir(vertexInput.positionWS), output.lightmapUVOrVertexSH.xyz, output.probeOcclusion);
 
 				#if defined(ASE_FOG) || defined(_ADDITIONAL_LIGHTS_VERTEX)
 					output.fogFactorAndVertexLight = 0;
@@ -3017,7 +3124,7 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 					BitangentWS = cross(NormalWS, -TangentWS);
 				#endif
 
-				float2 vertexToFrag286_g37 = input.ase_texcoord7.xy;
+				float2 vertexToFrag286_g37 = input.ase_texcoord6.xy;
 				float4 tex2DNode283_g37 = SAMPLE_TEXTURE2D( _Control, sampler_Control, vertexToFrag286_g37 );
 				float dotResult278_g37 = dot( tex2DNode283_g37 , half4( 1, 1, 1, 1 ) );
 				float localSplatClip276_g37 = ( dotResult278_g37 );
@@ -3028,22 +3135,22 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 				#endif
 				}
 				float4 Control26_g37 = ( tex2DNode283_g37 / ( localSplatClip276_g37 + 0.001 ) );
-				float2 uv_Splat0 = input.ase_texcoord7.zw * _Splat0_ST.xy + _Splat0_ST.zw;
+				float2 uv_Splat0 = input.ase_texcoord6.zw * _Splat0_ST.xy + _Splat0_ST.zw;
 				float4 tex2DNode414_g37 = SAMPLE_TEXTURE2D( _Splat0, sampler_Splat0, uv_Splat0 );
 				float3 Splat0342_g37 = (tex2DNode414_g37).rgb;
-				float2 uv_Splat1 = input.ase_texcoord7.zw * _Splat1_ST.xy + _Splat1_ST.zw;
+				float2 uv_Splat1 = input.ase_texcoord6.zw * _Splat1_ST.xy + _Splat1_ST.zw;
 				float4 tex2DNode420_g37 = SAMPLE_TEXTURE2D( _Splat1, sampler_Splat0, uv_Splat1 );
 				float3 Splat1379_g37 = (tex2DNode420_g37).rgb;
-				float2 uv_Splat2 = input.ase_texcoord7.zw * _Splat2_ST.xy + _Splat2_ST.zw;
+				float2 uv_Splat2 = input.ase_texcoord6.zw * _Splat2_ST.xy + _Splat2_ST.zw;
 				float4 tex2DNode417_g37 = SAMPLE_TEXTURE2D( _Splat2, sampler_Splat0, uv_Splat2 );
 				float3 Splat2357_g37 = (tex2DNode417_g37).rgb;
-				float2 uv_Splat3 = input.ase_texcoord7.zw * _Splat3_ST.xy + _Splat3_ST.zw;
+				float2 uv_Splat3 = input.ase_texcoord6.zw * _Splat3_ST.xy + _Splat3_ST.zw;
 				float4 tex2DNode423_g37 = SAMPLE_TEXTURE2D( _Splat3, sampler_Splat0, uv_Splat3 );
 				float3 Splat3390_g37 = (tex2DNode423_g37).rgb;
 				float4 weightedBlendVar9_g37 = Control26_g37;
 				float3 weightedBlend9_g37 = ( weightedBlendVar9_g37.x*( Splat0342_g37 * (_DiffuseRemapScale0).rgb ) + weightedBlendVar9_g37.y*( Splat1379_g37 * (_DiffuseRemapScale1).rgb ) + weightedBlendVar9_g37.z*( Splat2357_g37 * (_DiffuseRemapScale2).rgb ) + weightedBlendVar9_g37.w*( Splat3390_g37 * (_DiffuseRemapScale3).rgb ) );
 				float3 localClipHoles453_g37 = ( weightedBlend9_g37 );
-				float2 uv_TerrainHolesTexture = input.ase_texcoord7.zw * _TerrainHolesTexture_ST.xy + _TerrainHolesTexture_ST.zw;
+				float2 uv_TerrainHolesTexture = input.ase_texcoord6.zw * _TerrainHolesTexture_ST.xy + _TerrainHolesTexture_ST.zw;
 				float Hole453_g37 = SAMPLE_TEXTURE2D( _TerrainHolesTexture, sampler_TerrainHolesTexture, uv_TerrainHolesTexture ).r;
 				{
 				#ifdef _ALPHATEST_ON
@@ -3164,23 +3271,15 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 
 				#if defined(DYNAMICLIGHTMAP_ON)
 					inputData.bakedGI = SAMPLE_GI(input.lightmapUVOrVertexSH.xy, input.dynamicLightmapUV.xy, SH, inputData.normalWS);
-					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVOrVertexSH.xy);
-				#elif !defined(LIGHTMAP_ON) && (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2))
-					inputData.bakedGI = SAMPLE_GI(SH,
-						GetAbsolutePositionWS(inputData.positionWS),
-						inputData.normalWS,
-						inputData.viewDirectionWS,
-						input.positionCS.xy,
-						input.probeOcclusion,
-						inputData.shadowMask);
 				#else
 					inputData.bakedGI = SAMPLE_GI(input.lightmapUVOrVertexSH.xy, SH, inputData.normalWS);
-					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVOrVertexSH.xy);
 				#endif
 
 				#ifdef ASE_BAKEDGI
 					inputData.bakedGI = BakedGI;
 				#endif
+
+				inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVOrVertexSH.xy);
 
 				#if defined(DEBUG_DISPLAY)
 					#if defined(DYNAMICLIGHTMAP_ON)
@@ -3190,9 +3289,6 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 						inputData.staticLightmapUV = input.lightmapUVOrVertexSH.xy;
 					#else
 						inputData.vertexSH = SH;
-					#endif
-					#if defined(USE_APV_PROBE_OCCLUSION)
-						inputData.probeOcclusion = input.probeOcclusion;
 					#endif
 				#endif
 
@@ -3243,6 +3339,8 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 
 			HLSLPROGRAM
 
+			
+
 			#define ASE_GEOMETRY
 			#define _NORMAL_DROPOFF_TS 1
 			#define ASE_FOG 1
@@ -3250,9 +3348,11 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#define ASE_FINAL_COLOR_ALPHA_MULTIPLY 1
 			#define _NORMALMAP 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 			#define ASE_USING_SAMPLING_MACROS 1
 
+
+			
 
 			#pragma vertex vert
 			#pragma fragment frag
@@ -3273,11 +3373,25 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
-            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
+			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
+
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 
 			#define ASE_NEEDS_VERT_NORMAL
@@ -3592,6 +3706,8 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 
 			HLSLPROGRAM
 
+			
+
 			#define ASE_GEOMETRY
 			#define _NORMAL_DROPOFF_TS 1
 			#define ASE_FOG 1
@@ -3599,9 +3715,11 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#define ASE_FINAL_COLOR_ALPHA_MULTIPLY 1
 			#define _NORMALMAP 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 			#define ASE_USING_SAMPLING_MACROS 1
 
+
+			
 
 			#pragma vertex vert
 			#pragma fragment frag
@@ -3622,11 +3740,25 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
-            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
+			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
+
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 
 			#define ASE_NEEDS_VERT_NORMAL
@@ -3926,409 +4058,12 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 			}
 			ENDHLSL
 		}
-
-		UsePass "Hidden/Nature/Terrain/Utilities/PICKING"
-	UsePass "Hidden/Nature/Terrain/Utilities/SELECTION"
-
-		Pass
-		{
-			
-			Name "MotionVectors"
-			Tags { "LightMode"="MotionVectors" }
-
-			ColorMask RG
-
-			HLSLPROGRAM
-
-			#define ASE_GEOMETRY
-			#pragma multi_compile_local _ALPHATEST_ON
-			#define _NORMAL_DROPOFF_TS 1
-			#define ASE_FOG 1
-			#pragma multi_compile_fragment _ DEBUG_DISPLAY
-			#define ASE_FINAL_COLOR_ALPHA_MULTIPLY 1
-			#define _NORMALMAP 1
-			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
-			#define ASE_USING_SAMPLING_MACROS 1
-
-
-			#pragma vertex vert
-			#pragma fragment frag
-
-			#if defined(_SPECULAR_SETUP) && defined(ASE_LIGHTING_SIMPLE)
-				#define _SPECULAR_COLOR 1
-			#endif
-
-            #define SHADERPASS SHADERPASS_MOTION_VECTORS
-
-            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
-		    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
-		    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
-		    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-		    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-		    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
-		    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
-            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
-		    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
-		    #include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
-
-			#if defined(LOD_FADE_CROSSFADE)
-				#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
-			#endif
-
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/MotionVectorsCommon.hlsl"
-
-			#define ASE_NEEDS_TEXTURE_COORDINATES0
-			#define ASE_NEEDS_VERT_TEXTURE_COORDINATES0
-			#define ASE_INSTANCED_TERRAIN
-			#define ASE_NEEDS_VERT_NORMAL
-			#define ASE_NEEDS_VERT_POSITION
-			#pragma multi_compile_instancing
-			#pragma instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap
-			#define TERRAIN_SPLAT_FIRSTPASS 1
-
-
-			#if defined(ASE_EARLY_Z_DEPTH_OPTIMIZE) && (SHADER_TARGET >= 45)
-				#define ASE_SV_DEPTH SV_DepthLessEqual
-				#define ASE_SV_POSITION_QUALIFIERS linear noperspective centroid
-			#else
-				#define ASE_SV_DEPTH SV_Depth
-				#define ASE_SV_POSITION_QUALIFIERS
-			#endif
-
-			struct Attributes
-			{
-				float4 positionOS : POSITION;
-				float3 positionOld : TEXCOORD4;
-				#if _ADD_PRECOMPUTED_VELOCITY
-					float3 alembicMotionVector : TEXCOORD5;
-				#endif
-				half3 normalOS : NORMAL;
-				half4 tangentOS : TANGENT;
-				float4 ase_texcoord : TEXCOORD0;
-				UNITY_VERTEX_INPUT_INSTANCE_ID
-			};
-
-			struct PackedVaryings
-			{
-				float4 positionCS : SV_POSITION;
-				float4 positionCSNoJitter : TEXCOORD0;
-				float4 previousPositionCSNoJitter : TEXCOORD1;
-				float3 positionWS : TEXCOORD2;
-				float4 ase_texcoord3 : TEXCOORD3;
-				float4 ase_texcoord4 : TEXCOORD4;
-				UNITY_VERTEX_INPUT_INSTANCE_ID
-				UNITY_VERTEX_OUTPUT_STEREO
-			};
-
-			CBUFFER_START(UnityPerMaterial)
-			float4 _Control_ST;
-			float4 _Splat0_ST;
-			float4 _Splat1_ST;
-			float4 _Splat2_ST;
-			float4 _Splat3_ST;
-			float4 _TerrainHolesTexture_ST;
-			float _Smoothness1;
-			float _Smoothness0;
-			float _Metallic3;
-			float _Metallic2;
-			float _Metallic1;
-			half _NormalScale2;
-			half _NormalScale3;
-			float _Smoothness2;
-			half _NormalScale1;
-			half _NormalScale0;
-			float _Metallic0;
-			float _Smoothness3;
-			#ifdef ASE_TRANSMISSION
-				float _TransmissionShadow;
-			#endif
-			#ifdef ASE_TRANSLUCENCY
-				float _TransStrength;
-				float _TransNormal;
-				float _TransScattering;
-				float _TransDirect;
-				float _TransAmbient;
-				float _TransShadow;
-			#endif
-			#ifdef ASE_TESSELLATION
-				float _TessPhongStrength;
-				float _TessValue;
-				float _TessMin;
-				float _TessMax;
-				float _TessEdgeLength;
-				float _TessMaxDisp;
-			#endif
-			CBUFFER_END
-
-			#ifdef SCENEPICKINGPASS
-				float4 _SelectionID;
-			#endif
-
-			#ifdef SCENESELECTIONPASS
-				int _ObjectId;
-				int _PassValue;
-			#endif
-
-			TEXTURE2D(_Control);
-			SAMPLER(sampler_Control);
-			#ifdef UNITY_INSTANCING_ENABLED//ASE Terrain Instancing
-				TEXTURE2D(_TerrainHeightmapTexture);//ASE Terrain Instancing
-				TEXTURE2D( _TerrainNormalmapTexture);//ASE Terrain Instancing
-				SAMPLER(sampler_TerrainNormalmapTexture);//ASE Terrain Instancing
-			#endif//ASE Terrain Instancing
-			UNITY_INSTANCING_BUFFER_START( Terrain )//ASE Terrain Instancing
-				UNITY_DEFINE_INSTANCED_PROP( float4, _TerrainPatchInstanceData )//ASE Terrain Instancing
-			UNITY_INSTANCING_BUFFER_END( Terrain)//ASE Terrain Instancing
-			CBUFFER_START( UnityTerrain)//ASE Terrain Instancing
-				#ifdef UNITY_INSTANCING_ENABLED//ASE Terrain Instancing
-					float4 _TerrainHeightmapRecipSize;//ASE Terrain Instancing
-					float4 _TerrainHeightmapScale;//ASE Terrain Instancing
-				#endif//ASE Terrain Instancing
-			CBUFFER_END//ASE Terrain Instancing
-
-
-			Attributes ApplyMeshModification( Attributes input )
-			{
-			#ifdef UNITY_INSTANCING_ENABLED
-				float2 patchVertex = input.positionOS.xy;
-				float4 instanceData = UNITY_ACCESS_INSTANCED_PROP( Terrain, _TerrainPatchInstanceData );
-				float2 sampleCoords = ( patchVertex.xy + instanceData.xy ) * instanceData.z;
-				float height = UnpackHeightmap( _TerrainHeightmapTexture.Load( int3( sampleCoords, 0 ) ) );
-				input.positionOS.xz = sampleCoords* _TerrainHeightmapScale.xz;
-				input.positionOS.y = height* _TerrainHeightmapScale.y;
-				#ifdef ENABLE_TERRAIN_PERPIXEL_NORMAL
-					input.normalOS = float3(0, 1, 0);
-				#else
-					input.normalOS = _TerrainNormalmapTexture.Load(int3(sampleCoords, 0)).rgb* 2 - 1;
-				#endif
-				input.ase_texcoord.xy = sampleCoords* _TerrainHeightmapRecipSize.zw;
-			#endif
-				return input;
-			}
-			
-
-			PackedVaryings VertexFunction( Attributes input  )
-			{
-				PackedVaryings output = (PackedVaryings)0;
-				UNITY_SETUP_INSTANCE_ID(input);
-				UNITY_TRANSFER_INSTANCE_ID(input, output);
-				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-
-				input = ApplyMeshModification(input);
-				float2 break291_g37 = _Control_ST.zw;
-				float2 appendResult293_g37 = (float2(( break291_g37.x + 0.001 ) , ( break291_g37.y + 0.0001 )));
-				float2 vertexToFrag286_g37 = ( ( input.ase_texcoord.xy * _Control_ST.xy ) + appendResult293_g37 );
-				output.ase_texcoord3.xy = vertexToFrag286_g37;
-				
-				output.ase_texcoord4 = input.ase_texcoord;
-				
-				//setting value to unused interpolator channels and avoid initialization warnings
-				output.ase_texcoord3.zw = 0;
-
-				#ifdef ASE_ABSOLUTE_VERTEX_POS
-					float3 defaultVertexValue = input.positionOS.xyz;
-				#else
-					float3 defaultVertexValue = float3(0, 0, 0);
-				#endif
-
-				float3 vertexValue = defaultVertexValue;
-
-				#ifdef ASE_ABSOLUTE_VERTEX_POS
-					input.positionOS.xyz = vertexValue;
-				#else
-					input.positionOS.xyz += vertexValue;
-				#endif
-
-				VertexPositionInputs vertexInput = GetVertexPositionInputs( input.positionOS.xyz );
-
-				#if defined(APLICATION_SPACE_WARP_MOTION)
-					output.positionCSNoJitter = mul(_NonJitteredViewProjMatrix, mul(UNITY_MATRIX_M, input.positionOS));
-					output.positionCS = output.positionCSNoJitter;
-				#else
-					output.positionCS = vertexInput.positionCS;
-					output.positionCSNoJitter = mul(_NonJitteredViewProjMatrix, mul(UNITY_MATRIX_M, input.positionOS));
-				#endif
-
-				float4 prevPos = ( unity_MotionVectorsParams.x == 1 ) ? float4( input.positionOld, 1 ) : input.positionOS;
-
-				#if _ADD_PRECOMPUTED_VELOCITY
-					prevPos = prevPos - float4(input.alembicMotionVector, 0);
-				#endif
-
-				output.previousPositionCSNoJitter = mul( _PrevViewProjMatrix, mul( UNITY_PREV_MATRIX_M, prevPos ) );
-
-				output.positionWS = vertexInput.positionWS;
-
-				// removed in ObjectMotionVectors.hlsl found in unity 6000.0.23 and higher
-				//ApplyMotionVectorZBias( output.positionCS );
-				return output;
-			}
-
-			PackedVaryings vert ( Attributes input )
-			{
-				return VertexFunction( input );
-			}
-
-			half4 frag(	PackedVaryings input
-				#if defined( ASE_DEPTH_WRITE_ON )
-				,out float outputDepth : ASE_SV_DEPTH
-				#endif
-				 ) : SV_Target
-			{
-				UNITY_SETUP_INSTANCE_ID(input);
-				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX( input );
-
-				float3 PositionWS = input.positionWS;
-				float3 PositionRWS = GetCameraRelativePositionWS( PositionWS );
-				float4 ScreenPosNorm = float4( GetNormalizedScreenSpaceUV( input.positionCS ), input.positionCS.zw );
-				float4 ClipPos = ComputeClipSpacePosition( ScreenPosNorm.xy, input.positionCS.z ) * input.positionCS.w;
-
-				float2 vertexToFrag286_g37 = input.ase_texcoord3.xy;
-				float4 tex2DNode283_g37 = SAMPLE_TEXTURE2D( _Control, sampler_Control, vertexToFrag286_g37 );
-				float dotResult278_g37 = dot( tex2DNode283_g37 , half4( 1, 1, 1, 1 ) );
-				
-
-				float Alpha = dotResult278_g37;
-				float AlphaClipThreshold = 0.0;
-
-				#if defined( ASE_DEPTH_WRITE_ON )
-					float DeviceDepth = input.positionCS.z;
-				#endif
-
-				#ifdef _ALPHATEST_ON
-					clip(Alpha - AlphaClipThreshold);
-				#endif
-
-				#if defined(ASE_CHANGES_WORLD_POS)
-					float3 positionOS = mul( GetWorldToObjectMatrix(),  float4( PositionWS, 1.0 ) ).xyz;
-					float3 previousPositionWS = mul( GetPrevObjectToWorldMatrix(),  float4( positionOS, 1.0 ) ).xyz;
-					input.positionCSNoJitter = mul( _NonJitteredViewProjMatrix, float4( PositionWS, 1.0 ) );
-					input.previousPositionCSNoJitter = mul( _PrevViewProjMatrix, float4( previousPositionWS, 1.0 ) );
-				#endif
-
-				#if defined(LOD_FADE_CROSSFADE)
-					LODFadeCrossFade( input.positionCS );
-				#endif
-
-				#if defined( ASE_DEPTH_WRITE_ON )
-					outputDepth = DeviceDepth;
-				#endif
-
-				#if defined(APLICATION_SPACE_WARP_MOTION)
-					return float4( CalcAswNdcMotionVectorFromCsPositions( input.positionCSNoJitter, input.previousPositionCSNoJitter ), 1 );
-				#else
-					return float4( CalcNdcMotionVectorFromCsPositions( input.positionCSNoJitter, input.previousPositionCSNoJitter ), 0, 0 );
-				#endif
-			}
-			ENDHLSL
-		}
-
-	
+		
 	}
 	
 	CustomEditor "UnityEditor.Rendering.Universal.TerrainLitShaderGUI"
 	FallBack "Hidden/Shader Graph/FallbackError"
 	
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
-	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
-	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
 	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
 	Dependency "AddPassShader"="Hidden/AmplifyShaderPack/Terrain/Simple AddPass"
 	Dependency "BaseMapShader"="Hidden/AmplifyShaderPack/Terrain/Simple BasePass"
@@ -4369,18 +4104,16 @@ Shader "AmplifyShaderPack/Terrain/Simple"
 Version=19904
 Node;AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;60;336,288;Inherit;False;Constant;_AlphaClipThreshold1;AlphaClipThreshold;1;0;Create;True;0;0;0;False;0;False;0;0;0;0;0;1;FLOAT;0
 Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;72;336.8021,40.57027;Inherit;False;Terrain 4 Layer;0;;37;a8a57459582f78d4ca5db58f601fb616;4,504,1,102,1,669,0,668,0;0;8;FLOAT3;0;FLOAT3;14;FLOAT;56;FLOAT;45;FLOAT;200;FLOAT;282;FLOAT3;709;FLOAT4;701
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;50;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;ExtraPrePass;0;0;ExtraPrePass;6;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;5;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;AlwaysRenderMotionVectors=false;True;5;True;12;all;0;False;True;1;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;0;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;51;645.0565,40.11808;Float;False;True;-1;2;UnityEditor.Rendering.Universal.TerrainLitShaderGUI;0;12;AmplifyShaderPack/Terrain/Simple;94348b07e5e8bab40bd6c8a1e3df54cd;True;Forward;0;1;Forward;21;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;6;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=-100;UniversalMaterialType=Lit;AlwaysRenderMotionVectors=false;TerrainCompatible=True;True;5;True;12;all;0;False;True;1;1;False;;0;False;;1;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;2;LightMode=UniversalForwardOnly;TerrainCompatible=True;False;False;4;Include;;False;;Native;False;0;0;;Define;TERRAIN_SPLAT_FIRSTPASS 1;False;;Custom;False;0;0;;Pragma;instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap;False;;Custom;True;0;0;Forward, GBuffer;Pragma;multi_compile_instancing;False;;Custom;True;0;0;Forward,GBuffer,ShadowCaster,DepthOnly,DepthNormals;Off;128;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;0;Standard;50;Category,InvertActionOnDeselection;0;0;  Instanced Terrain Normals;1;0;Lighting Model;0;0;Workflow;1;0;Surface;0;0;  Refraction Model;0;0;  Blend;0;0;Two Sided;1;0;Alpha Clipping;1;0;  Use Shadow Threshold;0;0;Fragment Normal Space,InvertActionOnDeselection;0;0;Forward Only;0;0;Transmission;0;0;  Transmission Shadow;0.5,True,_ASETransmissionShadow;0;Translucency;0;0;  Translucency Strength;1,True,_ASETranslucencyStrength;0;  Normal Distortion;0.5,True,_ASETranslucencyNormalDistortion;0;  Scattering;2,True,_ASETranslucencyScattering;0;  Direct;0.9,True,_ASETranslucencyDirect;0;  Ambient;0.1,True,_ASETranslucencyAmbient;0;  Shadow;0.5,True,_ASETranslucencyShadow;0;Cast Shadows;0;638162445753263295;Receive Shadows;1;0;Specular Highlights;1;0;Environment Reflections;1;0;Receive SSAO;1;0;Motion Vectors;1;0;  Add Precomputed Velocity;0;0;  XR Motion Vectors;0;0;GPU Instancing;0;638162456717211447;LOD CrossFade;0;638162445856431097;Built-in Fog;1;0;_FinalColorxAlpha;1;638162445897066981;Meta Pass;1;0;Override Baked GI;0;0;Extra Pre Pass;0;0;Tessellation;0;0;  Phong;0;0;  Strength;0.5,True,_TessellationPhong;0;  Type;0;0;  Tess;16,True,_TessellationStrength;0;  Min;10,True,_TessellationDistanceMin;0;  Max;25,True,_TessellationDistanceMax;0;  Edge Length;16,False,;0;  Max Displacement;25,False,;0;Write Depth;0;0;  Early Z;0;0;Vertex Position,InvertActionOnDeselection;1;0;Debug Display;1;0;Clear Coat;0;0;0;12;False;True;False;True;True;True;True;True;True;True;True;False;True;;True;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;52;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;ShadowCaster;0;2;ShadowCaster;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;5;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;AlwaysRenderMotionVectors=false;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;True;False;False;False;False;0;False;;False;False;False;False;False;False;False;False;False;True;1;False;;True;3;False;;False;True;1;LightMode=ShadowCaster;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;53;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;DepthOnly;0;3;DepthOnly;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;5;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;AlwaysRenderMotionVectors=false;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;True;False;False;False;False;0;False;;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;True;1;LightMode=DepthOnly;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;54;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;Meta;0;4;Meta;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;5;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;AlwaysRenderMotionVectors=false;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Meta;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;55;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;Universal2D;0;5;Universal2D;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;5;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;AlwaysRenderMotionVectors=false;True;5;True;12;all;0;False;True;1;1;False;;0;False;;1;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;False;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;1;LightMode=Universal2D;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;56;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;DepthNormals;0;6;DepthNormals;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;5;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;AlwaysRenderMotionVectors=false;True;5;True;12;all;0;False;True;1;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;True;3;False;;False;True;1;LightMode=DepthNormalsOnly;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;57;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;GBuffer;0;7;GBuffer;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;5;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;AlwaysRenderMotionVectors=false;True;5;True;12;all;0;False;True;1;1;False;;0;False;;1;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;1;LightMode=UniversalGBuffer;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;73;645.0565,120.1181;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;SceneSelectionPass;0;8;SceneSelectionPass;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;5;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;AlwaysRenderMotionVectors=false;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=SceneSelectionPass;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;74;645.0565,120.1181;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;ScenePickingPass;0;9;ScenePickingPass;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;5;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;AlwaysRenderMotionVectors=false;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Picking;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;75;645.0565,140.1181;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;MotionVectors;0;10;MotionVectors;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;5;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;AlwaysRenderMotionVectors=false;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;False;False;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=MotionVectors;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;76;645.0565,150.1181;Float;False;False;-1;3;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;XRMotionVectors;0;11;XRMotionVectors;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;5;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;AlwaysRenderMotionVectors=false;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;True;1;False;;255;False;;1;False;;7;False;;3;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;1;LightMode=XRMotionVectors;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;50;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;ExtraPrePass;0;0;ExtraPrePass;6;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;True;5;True;12;all;0;False;True;1;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;0;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;51;645.0565,40.11808;Float;False;True;-1;2;UnityEditor.Rendering.Universal.TerrainLitShaderGUI;0;12;AmplifyShaderPack/Terrain/Simple;94348b07e5e8bab40bd6c8a1e3df54cd;True;Forward;0;1;Forward;21;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;5;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=-100;UniversalMaterialType=Lit;TerrainCompatible=True;True;5;True;12;all;0;False;True;1;1;False;;0;False;;1;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;2;LightMode=UniversalForwardOnly;TerrainCompatible=True;False;False;4;Include;;False;;Native;False;0;0;;Define;TERRAIN_SPLAT_FIRSTPASS 1;False;;Custom;False;0;0;;Pragma;instancing_options assumeuniformscaling nomatrices nolightprobe nolightmap;False;;Custom;True;0;0;Forward, GBuffer;Pragma;multi_compile_instancing;False;;Custom;True;0;0;Forward,GBuffer,ShadowCaster,DepthOnly,DepthNormals;Off;32;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;BaseMapShader=Hidden/AmplifyShaderPack/Terrain/Simple BasePass;AddPassShader=Hidden/AmplifyShaderPack/Terrain/Simple AddPass;0;Standard;47;Category,InvertActionOnDeselection;0;0;  Instanced Terrain Normals;1;0;Lighting Model;0;0;Workflow;1;0;Surface;0;0;  Refraction Model;0;0;  Blend;0;0;Two Sided;1;0;Alpha Clipping;1;0;  Use Shadow Threshold;0;0;Fragment Normal Space,InvertActionOnDeselection;0;0;Forward Only;0;0;Transmission;0;0;  Transmission Shadow;0.5,True,_ASETransmissionShadow;0;Translucency;0;0;  Translucency Strength;1,True,_ASETranslucencyStrength;0;  Normal Distortion;0.5,True,_ASETranslucencyNormalDistortion;0;  Scattering;2,True,_ASETranslucencyScattering;0;  Direct;0.9,True,_ASETranslucencyDirect;0;  Ambient;0.1,True,_ASETranslucencyAmbient;0;  Shadow;0.5,True,_ASETranslucencyShadow;0;Cast Shadows;0;638162445753263295;Receive Shadows;1;0;Specular Highlights;1;0;Environment Reflections;1;0;Receive SSAO;1;0;GPU Instancing;0;638162456717211447;LOD CrossFade;0;638162445856431097;Built-in Fog;1;0;_FinalColorxAlpha;1;638162445897066981;Meta Pass;1;0;Override Baked GI;0;0;Extra Pre Pass;0;0;Tessellation;0;0;  Phong;0;0;  Strength;0.5,True,_TessellationPhong;0;  Type;0;0;  Tess;16,True,_TessellationStrength;0;  Min;10,True,_TessellationDistanceMin;0;  Max;25,True,_TessellationDistanceMax;0;  Edge Length;16,False,;0;  Max Displacement;25,False,;0;Write Depth;0;0;  Early Z;0;0;Vertex Position,InvertActionOnDeselection;1;0;Debug Display;1;0;Clear Coat;0;0;0;10;False;True;False;True;True;True;True;True;True;True;True;;True;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;52;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;ShadowCaster;0;2;ShadowCaster;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;True;False;False;False;False;0;False;;False;False;False;False;False;False;False;False;False;True;1;False;;True;3;False;;False;True;1;LightMode=ShadowCaster;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;53;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;DepthOnly;0;3;DepthOnly;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;True;False;False;False;False;0;False;;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;True;1;LightMode=DepthOnly;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;54;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;Meta;0;4;Meta;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Meta;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;55;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;Universal2D;0;5;Universal2D;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;True;5;True;12;all;0;False;True;1;1;False;;0;False;;1;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;False;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;1;LightMode=Universal2D;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;56;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;DepthNormals;0;6;DepthNormals;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;True;5;True;12;all;0;False;True;1;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;True;3;False;;False;True;1;LightMode=DepthNormalsOnly;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;57;645.0565,40.11808;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;GBuffer;0;7;GBuffer;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;True;5;True;12;all;0;False;True;1;1;False;;0;False;;1;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;1;LightMode=UniversalGBuffer;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;73;645.0565,120.1181;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;SceneSelectionPass;0;8;SceneSelectionPass;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=SceneSelectionPass;False;False;0;;0;0;Standard;0;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;74;645.0565,120.1181;Float;False;False;-1;2;UnityEditor.ShaderGraphLitGUI;0;1;New Amplify Shader;94348b07e5e8bab40bd6c8a1e3df54cd;True;ScenePickingPass;0;9;ScenePickingPass;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Lit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Picking;False;False;0;;0;0;Standard;0;False;0
 WireConnection;51;0;72;0
 WireConnection;51;1;72;14
 WireConnection;51;3;72;56
@@ -4391,4 +4124,4 @@ WireConnection;51;7;60;0
 WireConnection;51;10;72;709
 WireConnection;51;30;72;701
 ASEEND*/
-//CHKSM=2721C3694A2B3D5F0819954EF1A458BA51DEFA84
+//CHKSM=1653031F382A5213C354EC24F448AD82703117A5

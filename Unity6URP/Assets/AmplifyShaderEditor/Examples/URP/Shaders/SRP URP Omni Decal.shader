@@ -25,8 +25,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
         [HideInInspector][NoScaleOffset] unity_LightmapsInd("unity_LightmapsInd", 2DArray) = "" {}
         [HideInInspector][NoScaleOffset] unity_ShadowMasks("unity_ShadowMasks", 2DArray) = "" {}
 
-		//[HideInInspector][ToggleUI] _AddPrecomputedVelocity("Add Precomputed Velocity", Float) = 1
-		[HideInInspector][ToggleOff] _ReceiveShadows("Receive Shadows", Float) = 1
+		[HideInInspector][ToggleOff] _ReceiveShadows("Receive Shadows", Float) = 0
 	}
 
 	SubShader
@@ -174,17 +173,27 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 
 			HLSLPROGRAM
 
+			
+
 			#define _SURFACE_TYPE_TRANSPARENT 1
+			#pragma multi_compile_local _RECEIVE_SHADOWS_OFF
 			#pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
 			#pragma multi_compile_instancing
 			#pragma instancing_options renderinglayer
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 			#define REQUIRE_DEPTH_TEXTURE 1
 
 
+			
+
 			#pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
 
+			
+
+			#pragma multi_compile _ DIRLIGHTMAP_COMBINED
+            #pragma multi_compile _ LIGHTMAP_ON
+            #pragma multi_compile _ DYNAMICLIGHTMAP_ON
 			#pragma multi_compile_fragment _ DEBUG_DISPLAY
 
 			#pragma vertex vert
@@ -192,16 +201,33 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 
 			#define SHADERPASS SHADERPASS_UNLIT
 
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
+			
+			#if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
+
+			
+			#if ASE_SRP_VERSION >=140010
 			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
+			#endif
+		
+
+			
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
@@ -227,7 +253,10 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct Attributes
 			{
 				float4 positionOS : POSITION;
-				half3 normalOS : NORMAL;
+				float3 normalOS : NORMAL;
+				float4 texcoord : TEXCOORD0;
+				float4 texcoord1 : TEXCOORD1;
+				float4 texcoord2 : TEXCOORD2;
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
@@ -235,8 +264,19 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct PackedVaryings
 			{
 				ASE_SV_POSITION_QUALIFIERS float4 positionCS : SV_POSITION;
-				float4 positionWSAndFogFactor : TEXCOORD0;
-				half3 normalWS : TEXCOORD1;
+				float3 positionWS : TEXCOORD0;
+				#if defined(ASE_FOG) || defined(_ADDITIONAL_LIGHTS_VERTEX)
+					half4 fogFactorAndVertexLight : TEXCOORD1;
+				#endif
+				#if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR) && defined(ASE_NEEDS_FRAG_SHADOWCOORDS)
+					float4 shadowCoord : TEXCOORD2;
+				#endif
+				#if defined(LIGHTMAP_ON)
+					float4 lightmapUVOrVertexSH : TEXCOORD3;
+				#endif
+				#if defined(DYNAMICLIGHTMAP_ON)
+					float2 dynamicLightmapUV : TEXCOORD4;
+				#endif
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 				UNITY_VERTEX_OUTPUT_STEREO
@@ -303,16 +343,31 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 				input.normalOS = input.normalOS;
 
 				VertexPositionInputs vertexInput = GetVertexPositionInputs( input.positionOS.xyz );
-				VertexNormalInputs normalInput = GetVertexNormalInputs( input.normalOS );
 
-				float fogFactor = 0;
-				#if defined(ASE_FOG) && !defined(_FOG_FRAGMENT)
-					fogFactor = ComputeFogFactor(vertexInput.positionCS.z);
+				#if defined(LIGHTMAP_ON)
+					OUTPUT_LIGHTMAP_UV(input.texcoord1, unity_LightmapST, output.lightmapUVOrVertexSH.xy);
+				#endif
+				#if defined(DYNAMICLIGHTMAP_ON)
+					output.dynamicLightmapUV.xy = input.texcoord2.xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
+				#endif
+
+				#if defined(ASE_FOG) || defined(_ADDITIONAL_LIGHTS_VERTEX)
+					output.fogFactorAndVertexLight = 0;
+					#if defined(ASE_FOG) && !defined(_FOG_FRAGMENT)
+						output.fogFactorAndVertexLight.x = ComputeFogFactor(vertexInput.positionCS.z);
+					#endif
+					#ifdef _ADDITIONAL_LIGHTS_VERTEX
+						half3 vertexLight = VertexLighting( vertexInput.positionWS, normalInput.normalWS );
+						output.fogFactorAndVertexLight.yzw = vertexLight;
+					#endif
+				#endif
+
+				#if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR) && defined(ASE_NEEDS_FRAG_SHADOWCOORDS)
+					output.shadowCoord = GetShadowCoord( vertexInput );
 				#endif
 
 				output.positionCS = vertexInput.positionCS;
-				output.positionWSAndFogFactor = float4( vertexInput.positionWS, fogFactor );
-				output.normalWS = normalInput.normalWS;
+				output.positionWS = vertexInput.positionWS;
 				return output;
 			}
 
@@ -320,7 +375,14 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct VertexControl
 			{
 				float4 positionOS : INTERNALTESSPOS;
-				half3 normalOS : NORMAL;
+				float3 normalOS : NORMAL;
+                float4 texcoord : TEXCOORD0;
+				#if defined(LIGHTMAP_ON) || defined(ASE_NEEDS_TEXTURE_COORDINATES1)
+					float4 texcoord1 : TEXCOORD1;
+				#endif
+				#if defined(DYNAMICLIGHTMAP_ON) || defined(ASE_NEEDS_TEXTURE_COORDINATES2)
+					float4 texcoord2 : TEXCOORD2;
+				#endif
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
@@ -338,6 +400,13 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 				UNITY_TRANSFER_INSTANCE_ID(input, output);
 				output.positionOS = input.positionOS;
 				output.normalOS = input.normalOS;
+                output.texcoord = input.texcoord;
+				#if defined(LIGHTMAP_ON) || defined(ASE_NEEDS_TEXTURE_COORDINATES1)
+					output.texcoord1 = input.texcoord1;
+				#endif
+				#if defined(DYNAMICLIGHTMAP_ON) || defined(ASE_NEEDS_TEXTURE_COORDINATES2)
+					output.texcoord2 = input.texcoord2;
+				#endif
 				
 				return output;
 			}
@@ -377,6 +446,13 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 				Attributes output = (Attributes) 0;
 				output.positionOS = patch[0].positionOS * bary.x + patch[1].positionOS * bary.y + patch[2].positionOS * bary.z;
 				output.normalOS = patch[0].normalOS * bary.x + patch[1].normalOS * bary.y + patch[2].normalOS * bary.z;
+                output.texcoord = patch[0].texcoord * bary.x + patch[1].texcoord * bary.y + patch[2].texcoord * bary.z;
+				#if defined(LIGHTMAP_ON) || defined(ASE_NEEDS_TEXTURE_COORDINATES1)
+					output.texcoord1 = patch[0].texcoord1 * bary.x + patch[1].texcoord1 * bary.y + patch[2].texcoord1 * bary.z;
+				#endif
+				#if defined(DYNAMICLIGHTMAP_ON) || defined(ASE_NEEDS_TEXTURE_COORDINATES2)
+					output.texcoord2 = patch[0].texcoord2 * bary.x + patch[1].texcoord2 * bary.y + patch[2].texcoord2 * bary.z;
+				#endif
 				
 				#if defined(ASE_PHONG_TESSELLATION)
 				float3 pp[3];
@@ -396,7 +472,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			#endif
 
 			half4 frag ( PackedVaryings input
-						#if defined( ASE_DEPTH_WRITE_ON )
+						#ifdef ASE_DEPTH_WRITE_ON
 						,out float outputDepth : ASE_SV_DEPTH
 						#endif
 						#ifdef _WRITE_RENDERING_LAYERS
@@ -417,20 +493,22 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 					LODFadeCrossFade( input.positionCS );
 				#endif
 
-				#if defined(MAIN_LIGHT_CALCULATE_SHADOWS)
-					float4 shadowCoord = TransformWorldToShadowCoord( input.positionWSAndFogFactor.xyz );
-				#else
-					float4 shadowCoord = float4(0, 0, 0, 0);
-				#endif
-
-				float3 PositionWS = input.positionWSAndFogFactor.xyz;
-				float3 PositionRWS = GetCameraRelativePositionWS( PositionWS );
-				half3 ViewDirWS = GetWorldSpaceNormalizeViewDir( PositionWS );
-				float4 ShadowCoord = shadowCoord;
+				float3 WorldPosition = input.positionWS;
+				float3 WorldViewDirection = GetWorldSpaceNormalizeViewDir( WorldPosition );
+				float4 ShadowCoords = float4( 0, 0, 0, 0 );
 				float4 ScreenPosNorm = float4( GetNormalizedScreenSpaceUV( input.positionCS ), input.positionCS.zw );
 				float4 ClipPos = ComputeClipSpacePosition( ScreenPosNorm.xy, input.positionCS.z ) * input.positionCS.w;
 				float4 ScreenPos = ComputeScreenPos( ClipPos );
-				half3 NormalWS = normalize( input.normalWS );
+
+				#if defined(ASE_NEEDS_FRAG_SHADOWCOORDS)
+					#if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
+						ShadowCoords = input.shadowCoord;
+					#elif defined(MAIN_LIGHT_CALCULATE_SHADOWS)
+						ShadowCoords = TransformWorldToShadowCoord( WorldPosition );
+					#endif
+				#endif
+
+				WorldViewDirection = SafeNormalize( WorldViewDirection );
 
 				float4 transform114 = mul(GetObjectToWorldMatrix(),float4( 0,0,0,1 ));
 				float2 UV22_g19 = ScreenPosNorm.xy;
@@ -461,33 +539,25 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 				float AlphaClipThreshold = 0.5;
 				float AlphaClipThresholdShadow = 0.5;
 
-				#if defined( ASE_DEPTH_WRITE_ON )
-					float DeviceDepth = input.positionCS.z;
+				#ifdef ASE_DEPTH_WRITE_ON
+					float DepthValue = input.positionCS.z;
 				#endif
 
 				#if defined( _ALPHATEST_ON )
 					AlphaDiscard( Alpha, AlphaClipThreshold );
 				#endif
 
-				#if defined(MAIN_LIGHT_CALCULATE_SHADOWS) && defined(ASE_CHANGES_WORLD_POS)
-					ShadowCoord = TransformWorldToShadowCoord( PositionWS );
-				#endif
-
 				InputData inputData = (InputData)0;
-				inputData.positionWS = PositionWS;
+				inputData.positionWS = WorldPosition;
 				inputData.positionCS = float4( input.positionCS.xy, ClipPos.zw / ClipPos.w );
 				inputData.normalizedScreenSpaceUV = ScreenPosNorm.xy;
-				inputData.normalWS = NormalWS;
-				inputData.viewDirectionWS = ViewDirWS;
-
-				#if defined(_SCREEN_SPACE_OCCLUSION) && !defined(_SURFACE_TYPE_TRANSPARENT)
-					float2 normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
-					AmbientOcclusionFactor aoFactor = GetScreenSpaceAmbientOcclusion(normalizedScreenSpaceUV);
-					Color.rgb *= aoFactor.directAmbientOcclusion;
-				#endif
+				inputData.viewDirectionWS = WorldViewDirection;
 
 				#ifdef ASE_FOG
-					inputData.fogCoord = InitializeInputDataFog(float4(inputData.positionWS, 1.0), input.positionWSAndFogFactor.w);
+					inputData.fogCoord = InitializeInputDataFog(float4(inputData.positionWS, 1.0), input.fogFactorAndVertexLight.x);
+				#endif
+				#ifdef _ADDITIONAL_LIGHTS_VERTEX
+					inputData.vertexLighting = input.fogFactorAndVertexLight.yzw;
 				#endif
 
 				#if defined(_DBUFFER)
@@ -502,8 +572,8 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 					#endif
 				#endif
 
-				#if defined( ASE_DEPTH_WRITE_ON )
-					outputDepth = DeviceDepth;
+				#ifdef ASE_DEPTH_WRITE_ON
+					outputDepth = DepthValue;
 				#endif
 
 				#ifdef _WRITE_RENDERING_LAYERS
@@ -529,17 +599,26 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 
 			HLSLPROGRAM
 
+			
+
 			#define _SURFACE_TYPE_TRANSPARENT 1
 			#pragma multi_compile_instancing
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 			#define REQUIRE_DEPTH_TEXTURE 1
 
+
+			
 
 			#pragma vertex vert
 			#pragma fragment frag
 
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -563,7 +642,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct Attributes
 			{
 				float4 positionOS : POSITION;
-				half3 normalOS : NORMAL;
+				float3 normalOS : NORMAL;
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
@@ -571,6 +650,12 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct PackedVaryings
 			{
 				ASE_SV_POSITION_QUALIFIERS float4 positionCS : SV_POSITION;
+				#if defined(ASE_NEEDS_FRAG_WORLD_POSITION)
+					float3 positionWS : TEXCOORD0;
+				#endif
+				#if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR) && defined(ASE_NEEDS_FRAG_SHADOWCOORDS)
+					float4 shadowCoord : TEXCOORD1;
+				#endif
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 				UNITY_VERTEX_OUTPUT_STEREO
@@ -633,7 +718,17 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 					input.positionOS.xyz += vertexValue;
 				#endif
 
+				input.normalOS = input.normalOS;
+
 				VertexPositionInputs vertexInput = GetVertexPositionInputs( input.positionOS.xyz );
+
+				#if defined(ASE_NEEDS_FRAG_WORLD_POSITION)
+					output.positionWS = vertexInput.positionWS;
+				#endif
+
+				#if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR) && defined(ASE_NEEDS_FRAG_SHADOWCOORDS)
+					output.shadowCoord = GetShadowCoord( vertexInput );
+				#endif
 
 				output.positionCS = vertexInput.positionCS;
 				return output;
@@ -643,7 +738,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct VertexControl
 			{
 				float4 positionOS : INTERNALTESSPOS;
-				half3 normalOS : NORMAL;
+				float3 normalOS : NORMAL;
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
@@ -719,7 +814,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			#endif
 
 			half4 frag(PackedVaryings input
-						#if defined( ASE_DEPTH_WRITE_ON )
+						#ifdef ASE_DEPTH_WRITE_ON
 						,out float outputDepth : ASE_SV_DEPTH
 						#endif
 						 ) : SV_Target
@@ -727,9 +822,22 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 				UNITY_SETUP_INSTANCE_ID(input);
 				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX( input );
 
+				#if defined(ASE_NEEDS_FRAG_WORLD_POSITION)
+				float3 WorldPosition = input.positionWS;
+				#endif
+
+				float4 ShadowCoords = float4( 0, 0, 0, 0 );
 				float4 ScreenPosNorm = float4( GetNormalizedScreenSpaceUV( input.positionCS ), input.positionCS.zw );
 				float4 ClipPos = ComputeClipSpacePosition( ScreenPosNorm.xy, input.positionCS.z ) * input.positionCS.w;
 				float4 ScreenPos = ComputeScreenPos( ClipPos );
+
+				#if defined(ASE_NEEDS_FRAG_SHADOWCOORDS)
+					#if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
+						ShadowCoords = input.shadowCoord;
+					#elif defined(MAIN_LIGHT_CALCULATE_SHADOWS)
+						ShadowCoords = TransformWorldToShadowCoord( WorldPosition );
+					#endif
+				#endif
 
 				float4 transform114 = mul(GetObjectToWorldMatrix(),float4( 0,0,0,1 ));
 				float2 UV22_g19 = ScreenPosNorm.xy;
@@ -756,8 +864,8 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 				float Alpha = temp_output_184_0;
 				float AlphaClipThreshold = 0.5;
 
-				#if defined( ASE_DEPTH_WRITE_ON )
-					float DeviceDepth = input.positionCS.z;
+				#ifdef ASE_DEPTH_WRITE_ON
+					float DepthValue = input.positionCS.z;
 				#endif
 
 				#if defined( _ALPHATEST_ON )
@@ -768,8 +876,8 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 					LODFadeCrossFade( input.positionCS );
 				#endif
 
-				#if defined( ASE_DEPTH_WRITE_ON )
-					outputDepth = DeviceDepth;
+				#ifdef ASE_DEPTH_WRITE_ON
+					outputDepth = DepthValue;
 				#endif
 
 				return 0;
@@ -789,11 +897,15 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 
 			HLSLPROGRAM
 
+			
+
 			#define _SURFACE_TYPE_TRANSPARENT 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 			#define REQUIRE_DEPTH_TEXTURE 1
 
+
+			
 
 			#pragma vertex vert
 			#pragma fragment frag
@@ -802,15 +914,32 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			#define ATTRIBUTES_NEED_TANGENT
 			#define SHADERPASS SHADERPASS_DEPTHONLY
 
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
+			
+			#if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
+
+			
+			#if ASE_SRP_VERSION >=140010
 			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
+			#endif
+		
+
+			
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 
@@ -819,7 +948,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct Attributes
 			{
 				float4 positionOS : POSITION;
-				half3 normalOS : NORMAL;
+				float3 normalOS : NORMAL;
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
@@ -903,9 +1032,12 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 					input.positionOS.xyz += vertexValue;
 				#endif
 
-				VertexPositionInputs vertexInput = GetVertexPositionInputs( input.positionOS.xyz );
+				input.normalOS = input.normalOS;
 
-				output.positionCS = vertexInput.positionCS;
+				float3 positionWS = TransformObjectToWorld( input.positionOS.xyz );
+
+				output.positionCS = TransformWorldToHClip(positionWS);
+
 				return output;
 			}
 
@@ -913,7 +1045,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct VertexControl
 			{
 				float4 positionOS : INTERNALTESSPOS;
-				half3 normalOS : NORMAL;
+				float3 normalOS : NORMAL;
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
@@ -1045,11 +1177,15 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 
 			HLSLPROGRAM
 
+			
+
 			#define _SURFACE_TYPE_TRANSPARENT 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 			#define REQUIRE_DEPTH_TEXTURE 1
 
+
+			
 
 			#pragma vertex vert
 			#pragma fragment frag
@@ -1059,15 +1195,32 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 
 			#define SHADERPASS SHADERPASS_DEPTHONLY
 
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
+			
+			#if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
+
+			
+			#if ASE_SRP_VERSION >=140010
 			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
+			#endif
+		
+
+			
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 
@@ -1080,7 +1233,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct Attributes
 			{
 				float4 positionOS : POSITION;
-				half3 normalOS : NORMAL;
+				float3 normalOS : NORMAL;
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
@@ -1163,9 +1316,10 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 					input.positionOS.xyz += vertexValue;
 				#endif
 
-				VertexPositionInputs vertexInput = GetVertexPositionInputs( input.positionOS.xyz );
+				input.normalOS = input.normalOS;
 
-				output.positionCS = vertexInput.positionCS;
+				float3 positionWS = TransformObjectToWorld( input.positionOS.xyz );
+				output.positionCS = TransformWorldToHClip(positionWS);
 				return output;
 			}
 
@@ -1173,7 +1327,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct VertexControl
 			{
 				float4 positionOS : INTERNALTESSPOS;
-				half3 normalOS : NORMAL;
+				float3 normalOS : NORMAL;
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
@@ -1309,14 +1463,20 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 
 			HLSLPROGRAM
 
+			
+
         	#define _SURFACE_TYPE_TRANSPARENT 1
         	#pragma multi_compile_instancing
         	#define ASE_VERSION 19904
-        	#define ASE_SRP_VERSION 170004
+        	#define ASE_SRP_VERSION 140012
         	#define REQUIRE_DEPTH_TEXTURE 1
 
 
+			
+
         	#pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+
+			
 
 			#pragma vertex vert
 			#pragma fragment frag
@@ -1327,15 +1487,32 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 
 			#define SHADERPASS SHADERPASS_DEPTHNORMALSONLY
 
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
+			
+			#if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
+
+			
+			#if ASE_SRP_VERSION >=140010
 			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
+			#endif
+		
+
+			
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 
@@ -1357,7 +1534,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct Attributes
 			{
 				float4 positionOS : POSITION;
-				half3 normalOS : NORMAL;
+				float3 normalOS : NORMAL;
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
@@ -1365,7 +1542,8 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct PackedVaryings
 			{
 				ASE_SV_POSITION_QUALIFIERS float4 positionCS : SV_POSITION;
-				half3 normalWS : TEXCOORD0;
+				float3 positionWS : TEXCOORD0;
+				float3 normalWS : TEXCOORD1;
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 				UNITY_VERTEX_OUTPUT_STEREO
@@ -1438,10 +1616,10 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 				input.normalOS = input.normalOS;
 
 				VertexPositionInputs vertexInput = GetVertexPositionInputs( input.positionOS.xyz );
-				VertexNormalInputs normalInput = GetVertexNormalInputs( input.normalOS );
 
 				output.positionCS = vertexInput.positionCS;
-				output.normalWS = normalInput.normalWS;
+				output.positionWS = vertexInput.positionWS;
+				output.normalWS = TransformObjectToWorldNormal( input.normalOS );
 				return output;
 			}
 
@@ -1449,7 +1627,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			struct VertexControl
 			{
 				float4 positionOS : INTERNALTESSPOS;
-				half3 normalOS : NORMAL;
+				float3 normalOS : NORMAL;
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 			};
@@ -1526,7 +1704,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 
 			void frag(PackedVaryings input
 						, out half4 outNormalWS : SV_Target0
-						#if defined( ASE_DEPTH_WRITE_ON )
+						#ifdef ASE_DEPTH_WRITE_ON
 						,out float outputDepth : ASE_SV_DEPTH
 						#endif
 						#ifdef _WRITE_RENDERING_LAYERS
@@ -1536,8 +1714,8 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			{
 				UNITY_SETUP_INSTANCE_ID(input);
 				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX( input );
-
-				half3 NormalWS = normalize( input.normalWS );
+				float3 WorldPosition = input.positionWS;
+				float3 WorldNormal = input.normalWS;
 				float4 ScreenPosNorm = float4( GetNormalizedScreenSpaceUV( input.positionCS ), input.positionCS.zw );
 				float4 ClipPos = ComputeClipSpacePosition( ScreenPosNorm.xy, input.positionCS.z ) * input.positionCS.w;
 				float4 ScreenPos = ComputeScreenPos( ClipPos );
@@ -1567,8 +1745,8 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 				float Alpha = temp_output_184_0;
 				float AlphaClipThreshold = 0.5;
 
-				#if defined( ASE_DEPTH_WRITE_ON )
-					float DeviceDepth = input.positionCS.z;
+				#ifdef ASE_DEPTH_WRITE_ON
+					float DepthValue = input.positionCS.z;
 				#endif
 
 				#ifdef _ALPHATEST_ON
@@ -1579,17 +1757,19 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 					LODFadeCrossFade( input.positionCS );
 				#endif
 
-				#if defined( ASE_DEPTH_WRITE_ON )
-					outputDepth = DeviceDepth;
+				#ifdef ASE_DEPTH_WRITE_ON
+					outputDepth = DepthValue;
 				#endif
 
 				#if defined(_GBUFFER_NORMALS_OCT)
-					float2 octNormalWS = PackNormalOctQuadEncode(NormalWS);
+					float3 normalWS = normalize(input.normalWS);
+					float2 octNormalWS = PackNormalOctQuadEncode(normalWS);
 					float2 remappedOctNormalWS = saturate(octNormalWS * 0.5 + 0.5);
 					half3 packedNormalWS = PackFloat2To888(remappedOctNormalWS);
 					outNormalWS = half4(packedNormalWS, 0.0);
 				#else
-					outNormalWS = half4(NormalizeNormalPerPixel( NormalWS ), 0.0);
+					float3 normalWS = input.normalWS;
+					outNormalWS = half4(NormalizeNormalPerPixel(normalWS), 0.0);
 				#endif
 
 				#ifdef _WRITE_RENDERING_LAYERS
@@ -1600,621 +1780,7 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 			ENDHLSL
 		}
 
-		
-		Pass
-		{
-			
-			Name "MotionVectors"
-			Tags { "LightMode"="MotionVectors" }
-
-			ColorMask RG
-
-			HLSLPROGRAM
-
-			#define _SURFACE_TYPE_TRANSPARENT 1
-			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
-			#define REQUIRE_DEPTH_TEXTURE 1
-
-
-			#pragma vertex vert
-			#pragma fragment frag
-
-            #define SHADERPASS SHADERPASS_MOTION_VECTORS
-
-            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
-		    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
-		    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
-		    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-		    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-		    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
-		    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
-            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
-		    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
-		    #include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
-
-			#if defined(LOD_FADE_CROSSFADE)
-				#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
-			#endif
-
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/MotionVectorsCommon.hlsl"
-
-			#define ASE_NEEDS_FRAG_SCREEN_POSITION_NORMALIZED
-
-
-			#if defined(ASE_EARLY_Z_DEPTH_OPTIMIZE) && (SHADER_TARGET >= 45)
-				#define ASE_SV_DEPTH SV_DepthLessEqual
-				#define ASE_SV_POSITION_QUALIFIERS linear noperspective centroid
-			#else
-				#define ASE_SV_DEPTH SV_Depth
-				#define ASE_SV_POSITION_QUALIFIERS
-			#endif
-
-			struct Attributes
-			{
-				float4 positionOS : POSITION;
-				float3 positionOld : TEXCOORD4;
-				#if _ADD_PRECOMPUTED_VELOCITY
-					float3 alembicMotionVector : TEXCOORD5;
-				#endif
-				half3 normalOS : NORMAL;
-				half4 tangentOS : TANGENT;
-				
-				UNITY_VERTEX_INPUT_INSTANCE_ID
-			};
-
-			struct PackedVaryings
-			{
-				float4 positionCS : SV_POSITION;
-				float4 positionCSNoJitter : TEXCOORD0;
-				float4 previousPositionCSNoJitter : TEXCOORD1;
-				float3 positionWS : TEXCOORD2;
-				
-				UNITY_VERTEX_INPUT_INSTANCE_ID
-				UNITY_VERTEX_OUTPUT_STEREO
-			};
-
-			CBUFFER_START(UnityPerMaterial)
-			float _Size;
-			float _Rampfalloff;
-			#ifdef ASE_TRANSMISSION
-				float _TransmissionShadow;
-			#endif
-			#ifdef ASE_TRANSLUCENCY
-				float _TransStrength;
-				float _TransNormal;
-				float _TransScattering;
-				float _TransDirect;
-				float _TransAmbient;
-				float _TransShadow;
-			#endif
-			#ifdef ASE_TESSELLATION
-				float _TessPhongStrength;
-				float _TessValue;
-				float _TessMin;
-				float _TessMax;
-				float _TessEdgeLength;
-				float _TessMaxDisp;
-			#endif
-			CBUFFER_END
-
-			#ifdef SCENEPICKINGPASS
-				float4 _SelectionID;
-			#endif
-
-			#ifdef SCENESELECTIONPASS
-				int _ObjectId;
-				int _PassValue;
-			#endif
-
-			
-
-			float2 UnStereo( float2 UV )
-			{
-				#if UNITY_SINGLE_PASS_STEREO
-				float4 scaleOffset = unity_StereoScaleOffset[ unity_StereoEyeIndex ];
-				UV.xy = (UV.xy - scaleOffset.zw) / scaleOffset.xy;
-				#endif
-				return UV;
-			}
-			
-			float3 InvertDepthDirURP75_g18( float3 In )
-			{
-				float3 result = In;
-				#if !defined(ASE_SRP_VERSION) || ASE_SRP_VERSION <= 70301 || ASE_SRP_VERSION == 70503 || ASE_SRP_VERSION == 70600 || ASE_SRP_VERSION == 70700 || ASE_SRP_VERSION == 70701 || ASE_SRP_VERSION >= 80301
-				result *= float3(1,1,-1);
-				#endif
-				return result;
-			}
-			
-
-			PackedVaryings VertexFunction( Attributes input  )
-			{
-				PackedVaryings output = (PackedVaryings)0;
-				UNITY_SETUP_INSTANCE_ID(input);
-				UNITY_TRANSFER_INSTANCE_ID(input, output);
-				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-
-				
-
-				#ifdef ASE_ABSOLUTE_VERTEX_POS
-					float3 defaultVertexValue = input.positionOS.xyz;
-				#else
-					float3 defaultVertexValue = float3(0, 0, 0);
-				#endif
-
-				float3 vertexValue = defaultVertexValue;
-
-				#ifdef ASE_ABSOLUTE_VERTEX_POS
-					input.positionOS.xyz = vertexValue;
-				#else
-					input.positionOS.xyz += vertexValue;
-				#endif
-
-				VertexPositionInputs vertexInput = GetVertexPositionInputs( input.positionOS.xyz );
-
-				#if defined(APLICATION_SPACE_WARP_MOTION)
-					output.positionCSNoJitter = mul(_NonJitteredViewProjMatrix, mul(UNITY_MATRIX_M, input.positionOS));
-					output.positionCS = output.positionCSNoJitter;
-				#else
-					output.positionCS = vertexInput.positionCS;
-					output.positionCSNoJitter = mul(_NonJitteredViewProjMatrix, mul(UNITY_MATRIX_M, input.positionOS));
-				#endif
-
-				float4 prevPos = ( unity_MotionVectorsParams.x == 1 ) ? float4( input.positionOld, 1 ) : input.positionOS;
-
-				#if _ADD_PRECOMPUTED_VELOCITY
-					prevPos = prevPos - float4(input.alembicMotionVector, 0);
-				#endif
-
-				output.previousPositionCSNoJitter = mul( _PrevViewProjMatrix, mul( UNITY_PREV_MATRIX_M, prevPos ) );
-				output.positionWS = vertexInput.positionWS;
-				return output;
-			}
-
-			PackedVaryings vert ( Attributes input )
-			{
-				return VertexFunction( input );
-			}
-
-			half4 frag(	PackedVaryings input
-				#if defined( ASE_DEPTH_WRITE_ON )
-				,out float outputDepth : ASE_SV_DEPTH
-				#endif
-				 ) : SV_Target
-			{
-				UNITY_SETUP_INSTANCE_ID(input);
-				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX( input );
-
-				float3 PositionWS = input.positionWS;
-				float3 PositionRWS = GetCameraRelativePositionWS( PositionWS );
-				float4 ScreenPosNorm = float4( GetNormalizedScreenSpaceUV( input.positionCS ), input.positionCS.zw );
-				float4 ClipPos = ComputeClipSpacePosition( ScreenPosNorm.xy, input.positionCS.z ) * input.positionCS.w;
-
-				float4 transform114 = mul(GetObjectToWorldMatrix(),float4( 0,0,0,1 ));
-				float2 UV22_g19 = ScreenPosNorm.xy;
-				float2 localUnStereo22_g19 = UnStereo( UV22_g19 );
-				float2 break64_g18 = localUnStereo22_g19;
-				float depth01_69_g18 = SHADERGRAPH_SAMPLE_SCENE_DEPTH( ScreenPosNorm.xy );
-				#ifdef UNITY_REVERSED_Z
-				float staticSwitch38_g18 = ( 1.0 - depth01_69_g18 );
-				#else
-				float staticSwitch38_g18 = depth01_69_g18;
-				#endif
-				float3 appendResult39_g18 = (float3(break64_g18.x , break64_g18.y , staticSwitch38_g18));
-				float4 appendResult42_g18 = (float4((appendResult39_g18*2.0 + -1.0) , 1.0));
-				float4 temp_output_43_0_g18 = mul( unity_CameraInvProjection, appendResult42_g18 );
-				float3 temp_output_46_0_g18 = ( (temp_output_43_0_g18).xyz / (temp_output_43_0_g18).w );
-				float3 In75_g18 = temp_output_46_0_g18;
-				float3 localInvertDepthDirURP75_g18 = InvertDepthDirURP75_g18( In75_g18 );
-				float4 appendResult49_g18 = (float4(localInvertDepthDirURP75_g18 , 1.0));
-				float3 ase_objectScale = float3( length( GetObjectToWorldMatrix()[ 0 ].xyz ), length( GetObjectToWorldMatrix()[ 1 ].xyz ), length( GetObjectToWorldMatrix()[ 2 ].xyz ) );
-				float saferPower163 = abs( ( length( abs( (( transform114 - mul( unity_CameraToWorld, appendResult49_g18 ) )).xyz ) ) / ( max( max( ase_objectScale.x , ase_objectScale.y ) , ase_objectScale.z ) * 0.5 * _Size ) ) );
-				float temp_output_184_0 = ( 1.0 - saturate( pow( saferPower163 , _Rampfalloff ) ) );
-				
-
-				float Alpha = temp_output_184_0;
-				float AlphaClipThreshold = 0.5;
-
-				#if defined( ASE_DEPTH_WRITE_ON )
-					float DeviceDepth = input.positionCS.z;
-				#endif
-
-				#ifdef _ALPHATEST_ON
-					clip(Alpha - AlphaClipThreshold);
-				#endif
-
-				#if defined( ASE_CHANGES_WORLD_POS )
-					float3 positionOS = mul( GetWorldToObjectMatrix(),  float4( PositionWS, 1.0 ) ).xyz;
-					float3 previousPositionWS = mul( GetPrevObjectToWorldMatrix(),  float4( positionOS, 1.0 ) ).xyz;
-					input.positionCSNoJitter = mul( _NonJitteredViewProjMatrix, float4( PositionWS, 1.0 ) );
-					input.previousPositionCSNoJitter = mul( _PrevViewProjMatrix, float4( previousPositionWS, 1.0 ) );
-				#endif
-
-				#if defined( LOD_FADE_CROSSFADE )
-					LODFadeCrossFade( input.positionCS );
-				#endif
-
-				#if defined( ASE_DEPTH_WRITE_ON )
-					outputDepth = DeviceDepth;
-				#endif
-
-				#if defined(APLICATION_SPACE_WARP_MOTION)
-					return float4( CalcAswNdcMotionVectorFromCsPositions( input.positionCSNoJitter, input.previousPositionCSNoJitter ), 1 );
-				#else
-					return float4( CalcNdcMotionVectorFromCsPositions( input.positionCSNoJitter, input.previousPositionCSNoJitter ), 0, 0 );
-				#endif
-			}
-			ENDHLSL
-		}
-
-		
-		Pass
-		{
-			
-			Name "GBuffer"
-			Tags { "LightMode"="UniversalGBuffer" }
-
-			Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha
-			ZWrite Off
-			ZTest Always
-			Offset 0 , 0
-			ColorMask RGBA
-
-			
-
-			HLSLPROGRAM
-
-			
-
-			#define _SURFACE_TYPE_TRANSPARENT 1
-			#pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
-			#define REQUIRE_DEPTH_TEXTURE 1
-
-
-			
-
-			#pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
-			#pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
-			#pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
-
-			
-
-			#pragma vertex vert
-			#pragma fragment frag
-
-			#define SHADERPASS SHADERPASS_GBUFFER
-
-			
-            #if ASE_SRP_VERSION >=140007
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
-			#endif
-		
-
-			
-			#if ASE_SRP_VERSION >=140007
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
-			#endif
-		
-
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
-
-			
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
-           
-
-			
-            #if ASE_SRP_VERSION >=140009
-			#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-			#endif
-		
-
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
-			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
-
-			#if defined(LOD_FADE_CROSSFADE)
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
-            #endif
-
-			#if defined(UNITY_INSTANCING_ENABLED) && defined(_TERRAIN_INSTANCED_PERPIXEL_NORMAL)
-				#define ENABLE_TERRAIN_PERPIXEL_NORMAL
-			#endif
-
-			#define ASE_NEEDS_FRAG_SCREEN_POSITION_NORMALIZED
-
-
-			#if defined(ASE_EARLY_Z_DEPTH_OPTIMIZE) && (SHADER_TARGET >= 45)
-				#define ASE_SV_DEPTH SV_DepthLessEqual
-				#define ASE_SV_POSITION_QUALIFIERS linear noperspective centroid
-			#else
-				#define ASE_SV_DEPTH SV_Depth
-				#define ASE_SV_POSITION_QUALIFIERS
-			#endif
-
-			struct Attributes
-			{
-				float4 positionOS : POSITION;
-				half3 normalOS : NORMAL;
-				
-				UNITY_VERTEX_INPUT_INSTANCE_ID
-			};
-
-			struct PackedVaryings
-			{
-				ASE_SV_POSITION_QUALIFIERS float4 positionCS : SV_POSITION;
-				float3 positionWS : TEXCOORD0;
-				half3 normalWS : TEXCOORD1;
-				
-				UNITY_VERTEX_INPUT_INSTANCE_ID
-				UNITY_VERTEX_OUTPUT_STEREO
-			};
-
-			CBUFFER_START(UnityPerMaterial)
-			float _Size;
-			float _Rampfalloff;
-			#ifdef ASE_TRANSMISSION
-				float _TransmissionShadow;
-			#endif
-			#ifdef ASE_TRANSLUCENCY
-				float _TransStrength;
-				float _TransNormal;
-				float _TransScattering;
-				float _TransDirect;
-				float _TransAmbient;
-				float _TransShadow;
-			#endif
-			#ifdef ASE_TESSELLATION
-				float _TessPhongStrength;
-				float _TessValue;
-				float _TessMin;
-				float _TessMax;
-				float _TessEdgeLength;
-				float _TessMaxDisp;
-			#endif
-			CBUFFER_END
-
-			#ifdef SCENEPICKINGPASS
-				float4 _SelectionID;
-			#endif
-
-			#ifdef SCENESELECTIONPASS
-				int _ObjectId;
-				int _PassValue;
-			#endif
-
-			sampler2D _Ramp;
-
-
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
-
-			float2 UnStereo( float2 UV )
-			{
-				#if UNITY_SINGLE_PASS_STEREO
-				float4 scaleOffset = unity_StereoScaleOffset[ unity_StereoEyeIndex ];
-				UV.xy = (UV.xy - scaleOffset.zw) / scaleOffset.xy;
-				#endif
-				return UV;
-			}
-			
-			float3 InvertDepthDirURP75_g18( float3 In )
-			{
-				float3 result = In;
-				#if !defined(ASE_SRP_VERSION) || ASE_SRP_VERSION <= 70301 || ASE_SRP_VERSION == 70503 || ASE_SRP_VERSION == 70600 || ASE_SRP_VERSION == 70700 || ASE_SRP_VERSION == 70701 || ASE_SRP_VERSION >= 80301
-				result *= float3(1,1,-1);
-				#endif
-				return result;
-			}
-			
-
-			PackedVaryings VertexFunction( Attributes input  )
-			{
-				PackedVaryings output = (PackedVaryings)0;
-				UNITY_SETUP_INSTANCE_ID(input);
-				UNITY_TRANSFER_INSTANCE_ID(input, output);
-				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-
-				
-				#ifdef ASE_ABSOLUTE_VERTEX_POS
-					float3 defaultVertexValue = input.positionOS.xyz;
-				#else
-					float3 defaultVertexValue = float3(0, 0, 0);
-				#endif
-
-				float3 vertexValue = defaultVertexValue;
-
-				#ifdef ASE_ABSOLUTE_VERTEX_POS
-					input.positionOS.xyz = vertexValue;
-				#else
-					input.positionOS.xyz += vertexValue;
-				#endif
-
-				VertexPositionInputs vertexInput = GetVertexPositionInputs( input.positionOS.xyz );
-				VertexNormalInputs normalInput = GetVertexNormalInputs( input.normalOS );
-
-				output.positionCS = vertexInput.positionCS;
-				output.positionWS = vertexInput.positionWS;
-				output.normalWS = normalInput.normalWS;
-				return output;
-			}
-
-			#if defined(ASE_TESSELLATION)
-			struct VertexControl
-			{
-				float4 positionOS : INTERNALTESSPOS;
-				half3 normalOS : NORMAL;
-				
-				UNITY_VERTEX_INPUT_INSTANCE_ID
-			};
-
-			struct TessellationFactors
-			{
-				float edge[3] : SV_TessFactor;
-				float inside : SV_InsideTessFactor;
-			};
-
-			VertexControl vert ( Attributes input )
-			{
-				VertexControl output;
-				UNITY_SETUP_INSTANCE_ID(input);
-				UNITY_TRANSFER_INSTANCE_ID(input, output);
-				output.positionOS = input.positionOS;
-				output.normalOS = input.normalOS;
-				
-				return output;
-			}
-
-			TessellationFactors TessellationFunction (InputPatch<VertexControl,3> input)
-			{
-				TessellationFactors output;
-				float4 tf = 1;
-				float tessValue = _TessValue; float tessMin = _TessMin; float tessMax = _TessMax;
-				float edgeLength = _TessEdgeLength; float tessMaxDisp = _TessMaxDisp;
-				#if defined(ASE_FIXED_TESSELLATION)
-				tf = FixedTess( tessValue );
-				#elif defined(ASE_DISTANCE_TESSELLATION)
-				tf = DistanceBasedTess(input[0].positionOS, input[1].positionOS, input[2].positionOS, tessValue, tessMin, tessMax, GetObjectToWorldMatrix(), _WorldSpaceCameraPos );
-				#elif defined(ASE_LENGTH_TESSELLATION)
-				tf = EdgeLengthBasedTess(input[0].positionOS, input[1].positionOS, input[2].positionOS, edgeLength, GetObjectToWorldMatrix(), _WorldSpaceCameraPos, _ScreenParams );
-				#elif defined(ASE_LENGTH_CULL_TESSELLATION)
-				tf = EdgeLengthBasedTessCull(input[0].positionOS, input[1].positionOS, input[2].positionOS, edgeLength, tessMaxDisp, GetObjectToWorldMatrix(), _WorldSpaceCameraPos, _ScreenParams, unity_CameraWorldClipPlanes );
-				#endif
-				output.edge[0] = tf.x; output.edge[1] = tf.y; output.edge[2] = tf.z; output.inside = tf.w;
-				return output;
-			}
-
-			[domain("tri")]
-			[partitioning("fractional_odd")]
-			[outputtopology("triangle_cw")]
-			[patchconstantfunc("TessellationFunction")]
-			[outputcontrolpoints(3)]
-			VertexControl HullFunction(InputPatch<VertexControl, 3> patch, uint id : SV_OutputControlPointID)
-			{
-				return patch[id];
-			}
-
-			[domain("tri")]
-			PackedVaryings DomainFunction(TessellationFactors factors, OutputPatch<VertexControl, 3> patch, float3 bary : SV_DomainLocation)
-			{
-				Attributes output = (Attributes) 0;
-				output.positionOS = patch[0].positionOS * bary.x + patch[1].positionOS * bary.y + patch[2].positionOS * bary.z;
-				output.normalOS = patch[0].normalOS * bary.x + patch[1].normalOS * bary.y + patch[2].normalOS * bary.z;
-				
-				#if defined(ASE_PHONG_TESSELLATION)
-				float3 pp[3];
-				for (int i = 0; i < 3; ++i)
-					pp[i] = output.positionOS.xyz - patch[i].normalOS * (dot(output.positionOS.xyz, patch[i].normalOS) - dot(patch[i].positionOS.xyz, patch[i].normalOS));
-				float phongStrength = _TessPhongStrength;
-				output.positionOS.xyz = phongStrength * (pp[0]*bary.x + pp[1]*bary.y + pp[2]*bary.z) + (1.0f-phongStrength) * output.positionOS.xyz;
-				#endif
-				UNITY_TRANSFER_INSTANCE_ID(patch[0], output);
-				return VertexFunction(output);
-			}
-			#else
-			PackedVaryings vert ( Attributes input )
-			{
-				return VertexFunction( input );
-			}
-			#endif
-
-			FragmentOutput frag ( PackedVaryings input
-								#if defined( ASE_DEPTH_WRITE_ON )
-								,out float outputDepth : ASE_SV_DEPTH
-								#endif
-								 )
-			{
-				UNITY_SETUP_INSTANCE_ID(input);
-				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-
-				#if defined(LOD_FADE_CROSSFADE)
-					LODFadeCrossFade( input.positionCS );
-				#endif
-
-				float3 PositionWS = input.positionWS;
-				float3 ViewDirWS = GetWorldSpaceNormalizeViewDir( PositionWS );
-				float4 ScreenPosNorm = float4( GetNormalizedScreenSpaceUV( input.positionCS ), input.positionCS.zw );
-				float4 ClipPos = ComputeClipSpacePosition( ScreenPosNorm.xy, input.positionCS.z ) * input.positionCS.w;
-				float4 ScreenPos = ComputeScreenPos( ClipPos );
-				half3 NormalWS = normalize( input.normalWS );
-
-				float4 transform114 = mul(GetObjectToWorldMatrix(),float4( 0,0,0,1 ));
-				float2 UV22_g19 = ScreenPosNorm.xy;
-				float2 localUnStereo22_g19 = UnStereo( UV22_g19 );
-				float2 break64_g18 = localUnStereo22_g19;
-				float depth01_69_g18 = SHADERGRAPH_SAMPLE_SCENE_DEPTH( ScreenPosNorm.xy );
-				#ifdef UNITY_REVERSED_Z
-				float staticSwitch38_g18 = ( 1.0 - depth01_69_g18 );
-				#else
-				float staticSwitch38_g18 = depth01_69_g18;
-				#endif
-				float3 appendResult39_g18 = (float3(break64_g18.x , break64_g18.y , staticSwitch38_g18));
-				float4 appendResult42_g18 = (float4((appendResult39_g18*2.0 + -1.0) , 1.0));
-				float4 temp_output_43_0_g18 = mul( unity_CameraInvProjection, appendResult42_g18 );
-				float3 temp_output_46_0_g18 = ( (temp_output_43_0_g18).xyz / (temp_output_43_0_g18).w );
-				float3 In75_g18 = temp_output_46_0_g18;
-				float3 localInvertDepthDirURP75_g18 = InvertDepthDirURP75_g18( In75_g18 );
-				float4 appendResult49_g18 = (float4(localInvertDepthDirURP75_g18 , 1.0));
-				float3 ase_objectScale = float3( length( GetObjectToWorldMatrix()[ 0 ].xyz ), length( GetObjectToWorldMatrix()[ 1 ].xyz ), length( GetObjectToWorldMatrix()[ 2 ].xyz ) );
-				float saferPower163 = abs( ( length( abs( (( transform114 - mul( unity_CameraToWorld, appendResult49_g18 ) )).xyz ) ) / ( max( max( ase_objectScale.x , ase_objectScale.y ) , ase_objectScale.z ) * 0.5 * _Size ) ) );
-				float temp_output_184_0 = ( 1.0 - saturate( pow( saferPower163 , _Rampfalloff ) ) );
-				float2 temp_cast_1 = (temp_output_184_0).xx;
-				
-
-				float3 Color = tex2Dlod( _Ramp, float4( temp_cast_1, 0, 0.0) ).rgb;
-				float Alpha = temp_output_184_0;
-				float AlphaClipThreshold = 0.5;
-				float AlphaClipThresholdShadow = 0.5;
-
-				#if defined( ASE_DEPTH_WRITE_ON )
-					float DeviceDepth = input.positionCS.z;
-				#endif
-
-				#ifdef _ALPHATEST_ON
-					clip(Alpha - AlphaClipThreshold);
-				#endif
-
-				InputData inputData = (InputData)0;
-				inputData.positionWS = PositionWS;
-				inputData.positionCS = float4( input.positionCS.xy, ClipPos.zw / ClipPos.w );
-				inputData.normalizedScreenSpaceUV = ScreenPosNorm.xy;
-				inputData.normalWS = NormalWS;
-				inputData.viewDirectionWS = ViewDirWS;
-
-				#if defined(_DBUFFER)
-					ApplyDecalToBaseColor(input.positionCS, Color);
-				#endif
-
-				#if defined( ASE_DEPTH_WRITE_ON )
-					outputDepth = DeviceDepth;
-				#endif
-
-				SurfaceData surfaceData = (SurfaceData)0;
-				surfaceData.albedo = Color;
-				surfaceData.alpha = Alpha;
-
-			#if defined( _SCREEN_SPACE_OCCLUSION ) // GBuffer never has transparents
-				float2 normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV( input.positionCS );
-				AmbientOcclusionFactor aoFactor = GetScreenSpaceAmbientOcclusion( normalizedScreenSpaceUV );
-				surfaceData.occlusion = aoFactor.directAmbientOcclusion;
-			#else
-				surfaceData.occlusion = 1;
-			#endif
-
-				return SurfaceDataToGbuffer( surfaceData, inputData, float3( 0, 0, 0 ), kLightingInvalid );
-			}
-
-			ENDHLSL
-		}
-		
+	
 	}
 	
 	CustomEditor "UnityEditor.ShaderGraphUnlitGUI"
@@ -2225,9 +1791,9 @@ Shader "ASESampleShaders/Omni Decal/SRP URP Omni Decal"
 /*ASEBEGIN
 Version=19904
 Node;AmplifyShaderEditor.CommentaryNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;219;1378.052,401.4491;Inherit;False;328.9616;247.4789;Object pivot position in world space;1;114;;1,1,1,1;0;0
-Node;AmplifyShaderEditor.CommentaryNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;220;1674.094,745.6295;Inherit;False;527.0399;229;Make the effect scale with the sphere;3;152;154;155;;1,1,1,1;0;0
 Node;AmplifyShaderEditor.ObjectToWorldTransfNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;114;1428.052,451.4491;Inherit;False;1;0;FLOAT4;0,0,0,1;False;5;FLOAT4;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4
 Node;AmplifyShaderEditor.FunctionNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;272;1256.361,701.5815;Inherit;False;Reconstruct World Position From Depth;-1;;18;e7094bcbcc80eb140b2a3dbe6a861de8;0;0;1;FLOAT4;0
+Node;AmplifyShaderEditor.CommentaryNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;220;1674.094,745.6295;Inherit;False;527.0399;229;Make the effect scale with the sphere;3;152;154;155;;1,1,1,1;0;0
 Node;AmplifyShaderEditor.ObjectScaleNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;152;1724.094,795.6295;Inherit;False;False;0;4;FLOAT3;0;FLOAT;1;FLOAT;2;FLOAT;3
 Node;AmplifyShaderEditor.SimpleSubtractOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;113;1830.928,475.2047;Inherit;False;2;0;FLOAT4;0,0,0,0;False;1;FLOAT4;0,0,0,0;False;1;FLOAT4;0
 Node;AmplifyShaderEditor.SimpleMaxOpNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;154;1923.721,798.6289;Inherit;False;2;0;FLOAT;0;False;1;FLOAT;0;False;1;FLOAT;0
@@ -2243,9 +1809,9 @@ Node;AmplifyShaderEditor.PowerNode, AmplifyShaderEditor, Version=0.0.0.0, Cultur
 Node;AmplifyShaderEditor.SaturateNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;187;2944,496;Inherit;False;1;0;FLOAT;0;False;1;FLOAT;0
 Node;AmplifyShaderEditor.OneMinusNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;184;3120,496;Inherit;False;1;0;FLOAT;0;False;1;FLOAT;0
 Node;AmplifyShaderEditor.RangedFloatNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;233;3163.349,370.7596;Float;False;Constant;_Float0;Float 0;4;0;Create;True;0;0;0;False;0;False;0;0;0;0;0;1;FLOAT;0
-Node;AmplifyShaderEditor.SamplerNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;185;3348.951,288;Inherit;True;Property;_Ramp;Ramp;2;0;Create;True;0;0;0;False;0;False;-1;None;None;True;0;False;white;Auto;False;Object;-1;MipLevel;Texture2D;False;8;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
+Node;AmplifyShaderEditor.SamplerNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;185;3348.951,288;Inherit;True;Property;_Ramp;Ramp;2;0;Create;True;0;0;0;False;0;False;-1;None;bb47b838a0905154496dfe9920ae73b0;True;0;False;white;Auto;False;Object;-1;MipLevel;Texture2D;False;8;0;SAMPLER2D;;False;1;FLOAT2;0,0;False;2;FLOAT;0;False;3;FLOAT2;0,0;False;4;FLOAT2;0,0;False;5;FLOAT;1;False;6;FLOAT;0;False;7;SAMPLERSTATE;;False;6;COLOR;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT3;5
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;263;3685.973,468.2288;Float;False;False;-1;2;UnityEditor.ShaderGraphUnlitGUI;0;1;New Amplify Shader;2992e84f91cbeb14eab234972e07ea9d;True;Meta;0;4;Meta;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Unlit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;2;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Meta;False;False;0;Hidden/InternalErrorShader;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;260;3685.973,468.2288;Float;False;True;-1;2;UnityEditor.ShaderGraphUnlitGUI;0;13;ASESampleShaders/Omni Decal/SRP URP Omni Decal;2992e84f91cbeb14eab234972e07ea9d;True;Forward;0;1;Forward;9;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;1;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;4;RenderPipeline=UniversalPipeline;RenderType=Transparent=RenderType;Queue=Transparent=Queue=0;UniversalMaterialType=Unlit;True;5;True;12;all;0;False;True;2;5;False;;10;False;;1;1;False;;10;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;255;False;;255;False;;255;False;;7;False;;1;False;;1;False;;1;False;;7;False;;1;False;;1;False;;1;False;;False;True;2;False;;True;7;False;;True;True;0;False;;0;False;;True;1;LightMode=UniversalForward;False;False;0;Hidden/InternalErrorShader;0;0;Standard;29;Surface;1;0;  Blend;0;0;Two Sided;2;0;Alpha Clipping;0;638918850352010964;  Use Shadow Threshold;0;0;Forward Only;0;0;Cast Shadows;0;0;Receive Shadows;1;0;Receive SSAO;1;0;Motion Vectors;1;0;  Add Precomputed Velocity;0;0;  XR Motion Vectors;0;0;GPU Instancing;1;0;LOD CrossFade;0;0;Built-in Fog;0;0;Meta Pass;0;0;Extra Pre Pass;0;0;Tessellation;0;0;  Phong;0;0;  Strength;0.5,False,;0;  Type;0;0;  Tess;16,False,;0;  Min;10,False,;0;  Max;25,False,;0;  Edge Length;16,False,;0;  Max Displacement;25,False,;0;Write Depth;0;0;  Early Z;0;0;Vertex Position;1;0;0;13;False;True;False;True;False;False;True;True;True;False;True;False;True;False;;False;0
+Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;260;3685.973,468.2288;Float;False;True;-1;2;UnityEditor.ShaderGraphUnlitGUI;0;13;ASESampleShaders/Omni Decal/SRP URP Omni Decal;2992e84f91cbeb14eab234972e07ea9d;True;Forward;0;1;Forward;9;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;1;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;4;RenderPipeline=UniversalPipeline;RenderType=Transparent=RenderType;Queue=Transparent=Queue=0;UniversalMaterialType=Unlit;True;5;True;12;all;0;False;True;2;5;False;;10;False;;1;1;False;;10;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;255;False;;255;False;;255;False;;7;False;;1;False;;1;False;;1;False;;7;False;;1;False;;1;False;;1;False;;False;True;2;False;;True;7;False;;True;True;0;False;;0;False;;True;1;LightMode=UniversalForward;False;False;0;Hidden/InternalErrorShader;0;0;Standard;26;Surface;1;0;  Blend;0;0;Two Sided;2;0;Alpha Clipping;0;638918851303156027;  Use Shadow Threshold;0;0;Forward Only;0;0;Cast Shadows;0;0;Receive Shadows;0;0;Receive SSAO;1;0;GPU Instancing;1;0;LOD CrossFade;0;0;Built-in Fog;0;0;Meta Pass;0;0;Extra Pre Pass;0;0;Tessellation;0;0;  Phong;0;0;  Strength;0.5,False,;0;  Type;0;0;  Tess;16,False,;0;  Min;10,False,;0;  Max;25,False,;0;  Edge Length;16,False,;0;  Max Displacement;25,False,;0;Write Depth;0;0;  Early Z;0;0;Vertex Position;1;0;0;10;False;True;False;True;False;False;True;True;True;False;False;;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;262;3685.973,468.2288;Float;False;False;-1;2;UnityEditor.ShaderGraphUnlitGUI;0;1;New Amplify Shader;2992e84f91cbeb14eab234972e07ea9d;True;DepthOnly;0;3;DepthOnly;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Unlit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;True;False;False;False;False;0;False;;False;False;False;False;False;False;False;False;False;True;1;False;;False;False;True;1;LightMode=DepthOnly;False;False;0;Hidden/InternalErrorShader;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;261;3685.973,468.2288;Float;False;False;-1;2;UnityEditor.ShaderGraphUnlitGUI;0;1;New Amplify Shader;2992e84f91cbeb14eab234972e07ea9d;True;ShadowCaster;0;2;ShadowCaster;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Unlit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;True;False;False;False;False;0;False;;False;False;False;False;False;False;False;False;False;True;1;False;;True;3;False;;False;True;1;LightMode=ShadowCaster;False;False;0;Hidden/InternalErrorShader;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;259;3685.973,468.2288;Float;False;False;-1;2;UnityEditor.ShaderGraphUnlitGUI;0;1;New Amplify Shader;2992e84f91cbeb14eab234972e07ea9d;True;ExtraPrePass;0;0;ExtraPrePass;5;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Unlit;True;5;True;12;all;0;False;True;1;1;False;;0;False;;0;1;False;;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;255;False;;255;False;;255;False;;7;False;;1;False;;1;False;;1;False;;7;False;;1;False;;1;False;;1;False;;False;True;1;False;;True;3;False;;True;True;0;False;;0;False;;True;0;False;False;0;Hidden/InternalErrorShader;0;0;Standard;0;False;0
@@ -2254,9 +1820,6 @@ Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Versi
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;275;3685.973,675.2288;Float;False;False;-1;2;UnityEditor.ShaderGraphUnlitGUI;0;1;New Amplify Shader;2992e84f91cbeb14eab234972e07ea9d;True;ScenePickingPass;0;7;ScenePickingPass;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Unlit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=Picking;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;276;3685.973,675.2288;Float;False;False;-1;2;UnityEditor.ShaderGraphUnlitGUI;0;1;New Amplify Shader;2992e84f91cbeb14eab234972e07ea9d;True;DepthNormals;0;8;DepthNormals;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Unlit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;True;3;False;;False;True;1;LightMode=DepthNormalsOnly;False;False;0;;0;0;Standard;0;False;0
 Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;277;3685.973,675.2288;Float;False;False;-1;2;UnityEditor.ShaderGraphUnlitGUI;0;1;New Amplify Shader;2992e84f91cbeb14eab234972e07ea9d;True;DepthNormalsOnly;0;9;DepthNormalsOnly;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Unlit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;1;False;;True;3;False;;False;True;1;LightMode=DepthNormalsOnly;False;True;9;d3d11;metal;vulkan;xboxone;xboxseries;playstation;ps4;ps5;switch;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;278;3685.973,568.2288;Float;False;False;-1;2;UnityEditor.ShaderGraphUnlitGUI;0;1;New Amplify Shader;2992e84f91cbeb14eab234972e07ea9d;True;MotionVectors;0;10;MotionVectors;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Unlit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;False;False;0;False;;False;False;False;False;False;False;False;False;False;False;False;False;True;1;LightMode=MotionVectors;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;279;3685.973,578.2288;Float;False;False;-1;3;UnityEditor.ShaderGraphUnlitGUI;0;1;New Amplify Shader;2992e84f91cbeb14eab234972e07ea9d;True;XRMotionVectors;0;11;XRMotionVectors;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Unlit;True;5;True;12;all;0;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;True;1;False;;255;False;;1;False;;7;False;;3;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;1;LightMode=XRMotionVectors;False;False;0;;0;0;Standard;0;False;0
-Node;AmplifyShaderEditor.TemplateMultiPassMasterNode, AmplifyShaderEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null;280;3685.973,578.2288;Float;False;False;-1;3;UnityEditor.ShaderGraphUnlitGUI;0;1;New Amplify Shader;2992e84f91cbeb14eab234972e07ea9d;True;GBuffer;0;12;GBuffer;0;False;False;False;False;False;False;False;False;False;False;False;False;True;0;False;;False;True;0;False;;False;False;False;False;False;False;False;False;False;True;False;0;False;;255;False;;255;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;0;False;;False;False;False;False;True;4;RenderPipeline=UniversalPipeline;RenderType=Opaque=RenderType;Queue=Geometry=Queue=0;UniversalMaterialType=Unlit;True;5;True;12;all;0;False;True;2;5;False;;10;False;;1;1;False;;10;False;;False;False;False;False;False;False;False;False;False;False;False;False;False;False;True;True;True;True;True;0;False;;False;False;False;False;False;False;False;True;False;255;False;;255;False;;255;False;;7;False;;1;False;;1;False;;1;False;;7;False;;1;False;;1;False;;1;False;;False;True;2;False;;True;7;False;;True;True;0;False;;0;False;;True;1;LightMode=UniversalGBuffer;False;False;0;;0;0;Standard;0;False;0
 WireConnection;113;0;114;0
 WireConnection;113;1;272;0
 WireConnection;154;0;152;1
@@ -2279,4 +1842,4 @@ WireConnection;185;2;233;0
 WireConnection;260;2;185;0
 WireConnection;260;3;184;0
 ASEEND*/
-//CHKSM=26C83C2A09BB7CA49FBB6478BB2DABF5D693D91A
+//CHKSM=82EBCEA8DF65A622E8AC2FA410FCA066A8506874

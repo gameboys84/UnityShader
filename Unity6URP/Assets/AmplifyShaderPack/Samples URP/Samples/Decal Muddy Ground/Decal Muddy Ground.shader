@@ -70,7 +70,7 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#define  _MATERIAL_AFFECTS_MAOS 1
 			#define DECAL_ANGLE_FADE 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 
 
 			#pragma vertex Vert
@@ -83,25 +83,47 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
 			#pragma multi_compile _ _DECAL_LAYERS
 
+			
+
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             #define HAVE_MESH_MODIFICATION
             #define SHADERPASS SHADERPASS_DBUFFER_PROJECTOR
 
+			#if _RENDER_PASS_ENABLED
+			#define GBUFFER3 0
+			#define GBUFFER4 1
+			FRAMEBUFFER_INPUT_HALF(GBUFFER3);
+			FRAMEBUFFER_INPUT_HALF(GBUFFER4);
+			#endif
+
+			
+
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
             #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DecalInput.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderVariablesDecal.hlsl"
@@ -110,13 +132,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(LOD_FADE_CROSSFADE)
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
             #endif
-
-			#if _RENDER_PASS_ENABLED
-			#define GBUFFER3 0
-			#define GBUFFER4 1
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER3);
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER4);
-			#endif
 
 			#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
 
@@ -162,7 +177,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(DECAL_ANGLE_FADE)
 			float _DecalAngleFadeSupported;
 			#endif
-			UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 			CBUFFER_END
 
             #ifdef SCENEPICKINGPASS
@@ -202,9 +216,18 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
                 #if (SHADERPASS == SHADERPASS_DBUFFER_PROJECTOR) || (SHADERPASS == SHADERPASS_DECAL_SCREEN_SPACE_PROJECTOR) || (SHADERPASS == SHADERPASS_DECAL_GBUFFER_PROJECTOR)
                     #if defined(_MATERIAL_AFFECTS_NORMAL)
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(mul((half3x3)normalToWorld, surfaceDescription.NormalTS.xyz));
+					
+
                     #else
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(normalToWorld[2].xyz);
+					
                     #endif
                 #elif (SHADERPASS == SHADERPASS_DBUFFER_MESH) || (SHADERPASS == SHADERPASS_DECAL_SCREEN_SPACE_MESH) || (SHADERPASS == SHADERPASS_DECAL_GBUFFER_MESH)
                     #if defined(_MATERIAL_AFFECTS_NORMAL)
@@ -213,7 +236,11 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
                         half3x3 tangentToWorld = half3x3(input.tangentWS.xyz, bitangent.xyz, input.normalWS.xyz);
                         surfaceData.normalWS.xyz = normalize(TransformTangentToWorld(surfaceDescription.NormalTS, tangentToWorld));
                     #else
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(half3(input.normalWS));
+					
                     #endif
                 #endif
 
@@ -322,13 +349,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(DECAL_PROJECTOR)
 			#if UNITY_REVERSED_Z
 			#if _RENDER_PASS_ENABLED
-				float depth = LOAD_FRAMEBUFFER_X_INPUT(GBUFFER3, packedInput.positionCS.xy).x;
+				float depth = LOAD_FRAMEBUFFER_INPUT(GBUFFER3, packedInput.positionCS.xy).x;
 			#else
 				float depth = LoadSceneDepth(packedInput.positionCS.xy);
 			#endif
 			#else
 			#if _RENDER_PASS_ENABLED
-				float depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, LOAD_FRAMEBUFFER_X_INPUT(GBUFFER3, packedInput.positionCS.xy));
+				float depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, LOAD_FRAMEBUFFER_INPUT(GBUFFER3, packedInput.positionCS.xy));
 			#else
 				float depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, LoadSceneDepth(packedInput.positionCS.xy));
 			#endif
@@ -347,7 +374,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 					half3 normalWS = half3(LoadSceneNormals(packedInput.positionCS.xy));
 				#endif
 
-				float2 positionSS = FoveatedRemapNonUniformToLinearCS(packedInput.positionCS.xy) * _ScreenSize.zw;
+				
+
+				
+				#if ASE_SRP_VERSION >=140011
+					float2 positionSS = FoveatedRemapNonUniformToLinearCS(packedInput.positionCS.xy) * _ScreenSize.zw;
+				#endif
+			
 
 				float4 positionCS = ComputeClipSpacePosition( positionSS, depth );
 				float4 hpositionVS = mul( UNITY_MATRIX_I_P, positionCS );
@@ -453,6 +486,8 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				GetSurfaceData(surfaceDescription, angleFadeFactor, surfaceData);
 				ENCODE_INTO_DBUFFER(surfaceData, outDBuffer);
 
+				
+
 			}
             ENDHLSL
         }
@@ -477,7 +512,7 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#define  _MATERIAL_AFFECTS_MAOS 1
 			#define DECAL_ANGLE_FADE 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 
 
 			#pragma vertex Vert
@@ -489,16 +524,26 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
 			#pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
 			#pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+
+			
+
+			
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+           
+
 			#pragma multi_compile _ _FORWARD_PLUS
+
+			
 			#pragma multi_compile_fragment _ _LIGHT_COOKIES
-			#pragma multi_compile_fragment _ DEBUG_DISPLAY
+		
+
+			
+
 			#pragma multi_compile _DECAL_NORMAL_BLEND_LOW _DECAL_NORMAL_BLEND_MEDIUM _DECAL_NORMAL_BLEND_HIGH
 			#pragma multi_compile _ _DECAL_LAYERS
 
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             #define ATTRIBUTES_NEED_NORMAL
 			#define ATTRIBUTES_NEED_TEXCOORD0
@@ -514,18 +559,39 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
             #define SHADERPASS SHADERPASS_DECAL_SCREEN_SPACE_PROJECTOR
 
+			#if _RENDER_PASS_ENABLED
+			#define GBUFFER3 0
+			#define GBUFFER4 1
+			FRAMEBUFFER_INPUT_HALF(GBUFFER3);
+			FRAMEBUFFER_INPUT_HALF(GBUFFER4);
+			#endif
+
+			
+
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
             #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DecalInput.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderVariablesDecal.hlsl"
@@ -533,13 +599,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 		    #if defined(LOD_FADE_CROSSFADE)
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
             #endif
-
-			#if _RENDER_PASS_ENABLED
-			#define GBUFFER3 0
-			#define GBUFFER4 1
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER3);
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER4);
-			#endif
 
 			#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
 
@@ -574,9 +633,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				float4 lightmapUVs : TEXCOORD2; // @diogo: packs both static (xy) and dynamic (zw)
 				float3 sh : TEXCOORD3;
 				float4 fogFactorAndVertexLight : TEXCOORD4;
-				#ifdef USE_APV_PROBE_OCCLUSION
-					float4 probeOcclusion : TEXCOORD5;
-				#endif
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 				UNITY_VERTEX_OUTPUT_STEREO
@@ -594,7 +650,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(DECAL_ANGLE_FADE)
 			float _DecalAngleFadeSupported;
 			#endif
-			UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 			CBUFFER_END
 
             #ifdef SCENEPICKINGPASS
@@ -638,9 +693,18 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
                 #if (SHADERPASS == SHADERPASS_DBUFFER_PROJECTOR) || (SHADERPASS == SHADERPASS_DECAL_SCREEN_SPACE_PROJECTOR) || (SHADERPASS == SHADERPASS_DECAL_GBUFFER_PROJECTOR)
                     #if defined(_MATERIAL_AFFECTS_NORMAL)
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(mul((half3x3)normalToWorld, surfaceDescription.NormalTS.xyz));
+					
+
                     #else
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(normalToWorld[2].xyz);
+					
                     #endif
                 #elif (SHADERPASS == SHADERPASS_DBUFFER_MESH) || (SHADERPASS == SHADERPASS_DECAL_SCREEN_SPACE_MESH) || (SHADERPASS == SHADERPASS_DECAL_GBUFFER_MESH)
                     #if defined(_MATERIAL_AFFECTS_NORMAL)
@@ -649,7 +713,11 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
                         half3x3 tangentToWorld = half3x3(input.tangentWS.xyz, bitangent.xyz, input.normalWS.xyz);
                         surfaceData.normalWS.xyz = normalize(TransformTangentToWorld(surfaceDescription.NormalTS, tangentToWorld));
                     #else
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(half3(input.normalWS));
+					
                     #endif
                 #endif
 
@@ -728,25 +796,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				#endif
 
 				#if defined(VARYINGS_NEED_DYNAMIC_LIGHTMAP_UV) && defined(DYNAMICLIGHTMAP_ON)
-					inputData.bakedGI = SAMPLE_GI(input.lightmapUVs.xy, input.lightmapUVs.zw, half3(input.sh), normalWS);
-					#if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVs.xy);
-					#endif
+					inputData.bakedGI = SAMPLE_GI(input.lightmapUVs.xy, input.lightmapUVs.zw, input.sh, normalWS);
 				#elif defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-				#if !defined(LIGHTMAP_ON) && (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2))
-    				inputData.bakedGI = SAMPLE_GI(input.sh,
-					GetAbsolutePositionWS(inputData.positionWS),
-					inputData.normalWS,
-					inputData.viewDirectionWS,
-					input.positionCS.xy,
-					input.probeOcclusion,
-					inputData.shadowMask);
-				#else
 					inputData.bakedGI = SAMPLE_GI(input.lightmapUVs.xy, half3(input.sh), normalWS);
-					#if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVs.xy);
-					#endif
 				#endif
+
+				#if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
+					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVs.xy);
 				#endif
 
 				#if defined(DEBUG_DISPLAY)
@@ -757,9 +813,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 						inputData.staticLightmapUV = input.lightmapUVs.xy;
 					#elif defined(VARYINGS_NEED_SH)
 						inputData.vertexSH = input.sh;
-					#endif
-					#if defined(USE_APV_PROBE_OCCLUSION)
-						inputData.probeOcclusion = input.probeOcclusion;
 					#endif
 				#endif
 
@@ -848,13 +901,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(DECAL_PROJECTOR)
 			#if UNITY_REVERSED_Z
 			#if _RENDER_PASS_ENABLED
-				float depth = LOAD_FRAMEBUFFER_X_INPUT(GBUFFER3, packedInput.positionCS.xy).x;
+				float depth = LOAD_FRAMEBUFFER_INPUT(GBUFFER3, packedInput.positionCS.xy).x;
 			#else
 				float depth = LoadSceneDepth(packedInput.positionCS.xy);
 			#endif
 			#else
 			#if _RENDER_PASS_ENABLED
-				float depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, LOAD_FRAMEBUFFER_X_INPUT(GBUFFER3, packedInput.positionCS.xy));
+				float depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, LOAD_FRAMEBUFFER_INPUT(GBUFFER3, packedInput.positionCS.xy));
 			#else
 				float depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, LoadSceneDepth(packedInput.positionCS.xy));
 			#endif
@@ -873,7 +926,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 					half3 normalWS = half3(LoadSceneNormals(packedInput.positionCS.xy));
 				#endif
 
-				float2 positionSS = FoveatedRemapNonUniformToLinearCS(packedInput.positionCS.xy) * _ScreenSize.zw;
+				
+
+				
+				#if ASE_SRP_VERSION >=140011
+					float2 positionSS = FoveatedRemapNonUniformToLinearCS(packedInput.positionCS.xy) * _ScreenSize.zw;
+				#endif
+			
 
 				float4 positionCS = ComputeClipSpacePosition( positionSS, depth );
 				float4 hpositionVS = mul( UNITY_MATRIX_I_P, positionCS );
@@ -982,7 +1041,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
 				GetSurfaceData( surfaceDescription, angleFadeFactor, surfaceData);
 
-				half3 normalToPack = surfaceData.normalWS.xyz;
 				#ifdef DECAL_RECONSTRUCT_NORMAL
 					surfaceData.normalWS.xyz = normalize(lerp(normalWS.xyz, surfaceData.normalWS.xyz, surfaceData.normalWS.w));
 				#endif
@@ -997,6 +1055,7 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				color.rgb = MixFog(color.rgb, inputData.fogCoord);
 				outColor = color;
 
+				
 			}
 			ENDHLSL
         }
@@ -1028,7 +1087,7 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#define  _MATERIAL_AFFECTS_MAOS 1
 			#define DECAL_ANGLE_FADE 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 
 
 			#pragma vertex Vert
@@ -1038,7 +1097,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#pragma editor_sync_compilation
 
 			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+
+			
+
+			
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+           
+
 			#pragma multi_compile _DECAL_NORMAL_BLEND_LOW _DECAL_NORMAL_BLEND_MEDIUM _DECAL_NORMAL_BLEND_HIGH
 			#pragma multi_compile _ _DECAL_LAYERS
 			#pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
@@ -1046,7 +1111,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             #define ATTRIBUTES_NEED_NORMAL
 			#define ATTRIBUTES_NEED_TEXCOORD0
@@ -1061,18 +1125,39 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
             #define SHADERPASS SHADERPASS_DECAL_GBUFFER_PROJECTOR
 
+			#if _RENDER_PASS_ENABLED
+			#define GBUFFER3 0
+			#define GBUFFER4 1
+			FRAMEBUFFER_INPUT_HALF(GBUFFER3);
+			FRAMEBUFFER_INPUT_HALF(GBUFFER4);
+			#endif
+
+			
+
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
             #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DecalInput.hlsl"
@@ -1081,13 +1166,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 		    #if defined(LOD_FADE_CROSSFADE)
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
             #endif
-
-			#if _RENDER_PASS_ENABLED
-			#define GBUFFER3 0
-			#define GBUFFER4 1
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER3);
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER4);
-			#endif
 
 			#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
 
@@ -1121,9 +1199,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				float3 viewDirectionWS : TEXCOORD1;
 				float4 lightmapUVs : TEXCOORD2; // @diogo: packs both static (xy) and dynamic (zw)
 				float3 sh : TEXCOORD3;
-				#ifdef USE_APV_PROBE_OCCLUSION
-					float4 probeOcclusion : TEXCOORD4;
-				#endif
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 				UNITY_VERTEX_OUTPUT_STEREO
@@ -1141,7 +1216,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(DECAL_ANGLE_FADE)
 			float _DecalAngleFadeSupported;
 			#endif
-			UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 			CBUFFER_END
 
             #ifdef SCENEPICKINGPASS
@@ -1185,9 +1259,18 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
                 #if (SHADERPASS == SHADERPASS_DBUFFER_PROJECTOR) || (SHADERPASS == SHADERPASS_DECAL_SCREEN_SPACE_PROJECTOR) || (SHADERPASS == SHADERPASS_DECAL_GBUFFER_PROJECTOR)
                     #if defined(_MATERIAL_AFFECTS_NORMAL)
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(mul((half3x3)normalToWorld, surfaceDescription.NormalTS.xyz));
+					
+
                     #else
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(normalToWorld[2].xyz);
+					
                     #endif
                 #elif (SHADERPASS == SHADERPASS_DBUFFER_MESH) || (SHADERPASS == SHADERPASS_DECAL_SCREEN_SPACE_MESH) || (SHADERPASS == SHADERPASS_DECAL_GBUFFER_MESH)
                     #if defined(_MATERIAL_AFFECTS_NORMAL)
@@ -1196,7 +1279,11 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
                         half3x3 tangentToWorld = half3x3(input.tangentWS.xyz, bitangent.xyz, input.normalWS.xyz);
                         surfaceData.normalWS.xyz = normalize(TransformTangentToWorld(surfaceDescription.NormalTS, tangentToWorld));
                     #else
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(half3(input.normalWS));
+					
                     #endif
                 #endif
 
@@ -1275,25 +1362,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				#endif
 
 				#if defined(VARYINGS_NEED_DYNAMIC_LIGHTMAP_UV) && defined(DYNAMICLIGHTMAP_ON)
-					inputData.bakedGI = SAMPLE_GI(input.lightmapUVs.xy, input.lightmapUVs.zw, half3(input.sh), normalWS);
-					#if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVs.xy);
-					#endif
+					inputData.bakedGI = SAMPLE_GI(input.lightmapUVs.xy, input.lightmapUVs.zw, input.sh, normalWS);
 				#elif defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-				#if !defined(LIGHTMAP_ON) && (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2))
-    				inputData.bakedGI = SAMPLE_GI(input.sh,
-					GetAbsolutePositionWS(inputData.positionWS),
-					inputData.normalWS,
-					inputData.viewDirectionWS,
-					input.positionCS.xy,
-					input.probeOcclusion,
-					inputData.shadowMask);
-				#else
 					inputData.bakedGI = SAMPLE_GI(input.lightmapUVs.xy, half3(input.sh), normalWS);
-					#if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVs.xy);
-					#endif
 				#endif
+
+				#if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
+					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVs.xy);
 				#endif
 
 				#if defined(DEBUG_DISPLAY)
@@ -1304,9 +1379,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 						inputData.staticLightmapUV = input.lightmapUVs.xy;
 					#elif defined(VARYINGS_NEED_SH)
 						inputData.vertexSH = input.sh;
-					#endif
-					#if defined(USE_APV_PROBE_OCCLUSION)
-						inputData.probeOcclusion = input.probeOcclusion;
 					#endif
 				#endif
 
@@ -1385,13 +1457,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(DECAL_PROJECTOR)
 			#if UNITY_REVERSED_Z
 			#if _RENDER_PASS_ENABLED
-				float depth = LOAD_FRAMEBUFFER_X_INPUT(GBUFFER3, packedInput.positionCS.xy).x;
+				float depth = LOAD_FRAMEBUFFER_INPUT(GBUFFER3, packedInput.positionCS.xy).x;
 			#else
 				float depth = LoadSceneDepth(packedInput.positionCS.xy);
 			#endif
 			#else
 			#if _RENDER_PASS_ENABLED
-				float depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, LOAD_FRAMEBUFFER_X_INPUT(GBUFFER3, packedInput.positionCS.xy));
+				float depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, LOAD_FRAMEBUFFER_INPUT(GBUFFER3, packedInput.positionCS.xy));
 			#else
 				float depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, LoadSceneDepth(packedInput.positionCS.xy));
 			#endif
@@ -1410,7 +1482,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 					half3 normalWS = half3(LoadSceneNormals(packedInput.positionCS.xy));
 				#endif
 
-				float2 positionSS = FoveatedRemapNonUniformToLinearCS(packedInput.positionCS.xy) * _ScreenSize.zw;
+				
+
+				
+				#if ASE_SRP_VERSION >=140011
+					float2 positionSS = FoveatedRemapNonUniformToLinearCS(packedInput.positionCS.xy) * _ScreenSize.zw;
+				#endif
+			
 
 				float4 positionCS = ComputeClipSpacePosition( positionSS, depth );
 				float4 hpositionVS = mul( UNITY_MATRIX_I_P, positionCS );
@@ -1520,7 +1598,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				GetSurfaceData(surfaceDescription, angleFadeFactor, surfaceData);
 
 				half3 normalToPack = surfaceData.normalWS.xyz;
-
 				#ifdef DECAL_RECONSTRUCT_NORMAL
 					surfaceData.normalWS.xyz = normalize(lerp(normalWS.xyz, surfaceData.normalWS.xyz, surfaceData.normalWS.w));
 				#endif
@@ -1542,27 +1619,18 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 					half3 color = 0;
 				#endif
 
-				//PassGBuffer.template
-				half3 packedNormalWS = PackNormal(surfaceData.normalWS.xyz);
+				#pragma warning (disable : 3578) // The output value isn't completely initialized.
+				half3 packedNormalWS = PackNormal(normalToPack);
 				fragmentOutput.GBuffer0 = half4(surfaceData.baseColor.rgb, surfaceData.baseColor.a);
 				fragmentOutput.GBuffer1 = 0;
 				fragmentOutput.GBuffer2 = half4(packedNormalWS, surfaceData.normalWS.a);
-				#if defined(AFFECT_BASE_COLOR) || defined(AFFECT_EMISSIVE)
 				fragmentOutput.GBuffer3 = half4(surfaceData.emissive + color, surfaceData.baseColor.a);
-				#else
-				fragmentOutput.GBuffer3 = 0;
-				#endif
-				#if _RENDER_PASS_ENABLED
-				fragmentOutput.GBuffer4 = inputData.positionCS.xy;
 				#if OUTPUT_SHADOWMASK
-				fragmentOutput.GBuffer5 = inputData.shadowMask;
+					fragmentOutput.GBuffer4 = inputData.shadowMask;
 				#endif
-				#else
+				#pragma warning (default : 3578) // Restore output value isn't completely initialized.
 
-				#if OUTPUT_SHADOWMASK
-				fragmentOutput.GBuffer4 = inputData.shadowMask;
-				#endif
-				#endif
+				
 
 			}
             ENDHLSL
@@ -1591,7 +1659,7 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#define _MATERIAL_AFFECTS_NORMAL_BLEND 1
 			#define  _MATERIAL_AFFECTS_MAOS 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 
 
 			#pragma vertex Vert
@@ -1604,7 +1672,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             #define ATTRIBUTES_NEED_NORMAL
             #define ATTRIBUTES_NEED_TANGENT
@@ -1620,18 +1687,39 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
             #define SHADERPASS SHADERPASS_DBUFFER_MESH
 
+			#if _RENDER_PASS_ENABLED
+			#define GBUFFER3 0
+			#define GBUFFER4 1
+			FRAMEBUFFER_INPUT_HALF(GBUFFER3);
+			FRAMEBUFFER_INPUT_HALF(GBUFFER4);
+			#endif
+
+			
+
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
             #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DecalInput.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderVariablesDecal.hlsl"
@@ -1640,13 +1728,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(LOD_FADE_CROSSFADE)
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
             #endif
-
-			#if _RENDER_PASS_ENABLED
-			#define GBUFFER3 0
-			#define GBUFFER4 1
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER3);
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER4);
-			#endif
 
             #define ASE_NEEDS_TEXTURE_COORDINATES0
             #define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
@@ -1700,7 +1781,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(DECAL_ANGLE_FADE)
 			float _DecalAngleFadeSupported;
 			#endif
-			UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 			CBUFFER_END
 
             #ifdef SCENEPICKINGPASS
@@ -1741,9 +1821,18 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
                 #if (SHADERPASS == SHADERPASS_DBUFFER_PROJECTOR) || (SHADERPASS == SHADERPASS_DECAL_SCREEN_SPACE_PROJECTOR) || (SHADERPASS == SHADERPASS_DECAL_GBUFFER_PROJECTOR)
                     #if defined(_MATERIAL_AFFECTS_NORMAL)
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(mul((half3x3)normalToWorld, surfaceDescription.NormalTS.xyz));
+					
+
                     #else
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(normalToWorld[2].xyz);
+					
                     #endif
                 #elif (SHADERPASS == SHADERPASS_DBUFFER_MESH) || (SHADERPASS == SHADERPASS_DECAL_SCREEN_SPACE_MESH) || (SHADERPASS == SHADERPASS_DECAL_GBUFFER_MESH)
                     #if defined(_MATERIAL_AFFECTS_NORMAL)
@@ -1752,7 +1841,11 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
                         half3x3 tangentToWorld = half3x3(input.tangentWS.xyz, bitangent.xyz, input.normalWS.xyz);
                         surfaceData.normalWS.xyz = normalize(TransformTangentToWorld(surfaceDescription.NormalTS, tangentToWorld));
                     #else
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(half3(input.normalWS));
+					
                     #endif
                 #endif
 
@@ -1895,7 +1988,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 					half3 normalWS = half3(LoadSceneNormals(packedInput.positionCS.xy));
 				#endif
 
-				float2 positionSS = FoveatedRemapNonUniformToLinearCS(packedInput.positionCS.xy) * _ScreenSize.zw;
+				
+
+				
+				#if ASE_SRP_VERSION >=140011
+					float2 positionSS = FoveatedRemapNonUniformToLinearCS(packedInput.positionCS.xy) * _ScreenSize.zw;
+				#endif
+			
 
 				float3 positionWS = packedInput.positionWS.xyz;
 				half3 viewDirectionWS = half3(1.0, 1.0, 1.0);
@@ -1958,6 +2057,8 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				GetSurfaceData(packedInput, surfaceDescription, surfaceData);
 				ENCODE_INTO_DBUFFER(surfaceData, outDBuffer);
 
+				
+
 			}
 
             ENDHLSL
@@ -1981,7 +2082,7 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#define _MATERIAL_AFFECTS_NORMAL_BLEND 1
 			#define  _MATERIAL_AFFECTS_MAOS 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 
 
 			#pragma vertex Vert
@@ -1993,21 +2094,24 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#pragma multi_compile _ LIGHTMAP_ON
 			#pragma multi_compile _ DYNAMICLIGHTMAP_ON
 			#pragma multi_compile _ DIRLIGHTMAP_COMBINED
-			#pragma multi_compile _ USE_LEGACY_LIGHTMAPS
 			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
 			#pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
 			#pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+
+			
+
+			
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+           
+
 			#pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
 			#pragma multi_compile _ SHADOWS_SHADOWMASK
 			#pragma multi_compile _ _FORWARD_PLUS
 			#pragma multi_compile _DECAL_NORMAL_BLEND_LOW _DECAL_NORMAL_BLEND_MEDIUM _DECAL_NORMAL_BLEND_HIGH
-			#pragma multi_compile_fragment _ DEBUG_DISPLAY
 			#pragma multi_compile _ _DECAL_LAYERS
 
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             #define ATTRIBUTES_NEED_NORMAL
             #define ATTRIBUTES_NEED_TANGENT
@@ -2028,18 +2132,39 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
             #define SHADERPASS SHADERPASS_DECAL_SCREEN_SPACE_MESH
 
+			#if _RENDER_PASS_ENABLED
+			#define GBUFFER3 0
+			#define GBUFFER4 1
+			FRAMEBUFFER_INPUT_HALF(GBUFFER3);
+			FRAMEBUFFER_INPUT_HALF(GBUFFER4);
+			#endif
+
+			
+
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
             #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DecalInput.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderVariablesDecal.hlsl"
@@ -2047,13 +2172,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(LOD_FADE_CROSSFADE)
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
             #endif
-
-			#if _RENDER_PASS_ENABLED
-			#define GBUFFER3 0
-			#define GBUFFER4 1
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER3);
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER4);
-			#endif
 
 			#define ASE_NEEDS_TEXTURE_COORDINATES0
 			#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
@@ -2095,9 +2213,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				float4 lightmapUVs : TEXCOORD5; // @diogo: packs both static (xy) and dynamic (zw)
 				float3 sh : TEXCOORD6;
 				float4 fogFactorAndVertexLight : TEXCOORD7;
-				#ifdef USE_APV_PROBE_OCCLUSION
-					float4 probeOcclusion : TEXCOORD8;
-				#endif
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 				UNITY_VERTEX_OUTPUT_STEREO
@@ -2115,7 +2230,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(DECAL_ANGLE_FADE)
 			float _DecalAngleFadeSupported;
 			#endif
-			UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 			CBUFFER_END
 
             #ifdef SCENEPICKINGPASS
@@ -2160,9 +2274,18 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
                 #if (SHADERPASS == SHADERPASS_DBUFFER_PROJECTOR) || (SHADERPASS == SHADERPASS_DECAL_SCREEN_SPACE_PROJECTOR) || (SHADERPASS == SHADERPASS_DECAL_GBUFFER_PROJECTOR)
                     #if defined(_MATERIAL_AFFECTS_NORMAL)
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(mul((half3x3)normalToWorld, surfaceDescription.NormalTS.xyz));
+					
+
                     #else
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(normalToWorld[2].xyz);
+					
                     #endif
                 #elif (SHADERPASS == SHADERPASS_DBUFFER_MESH) || (SHADERPASS == SHADERPASS_DECAL_SCREEN_SPACE_MESH) || (SHADERPASS == SHADERPASS_DECAL_GBUFFER_MESH)
                     #if defined(_MATERIAL_AFFECTS_NORMAL)
@@ -2171,7 +2294,11 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
                         half3x3 tangentToWorld = half3x3(input.tangentWS.xyz, bitangent.xyz, input.normalWS.xyz);
                         surfaceData.normalWS.xyz = normalize(TransformTangentToWorld(surfaceDescription.NormalTS, tangentToWorld));
                     #else
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(half3(input.normalWS));
+					
                     #endif
                 #endif
 
@@ -2260,25 +2387,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				#endif
 
 				#if defined(VARYINGS_NEED_DYNAMIC_LIGHTMAP_UV) && defined(DYNAMICLIGHTMAP_ON)
-					inputData.bakedGI = SAMPLE_GI(input.lightmapUVs.xy, input.lightmapUVs.zw, half3(input.sh), normalWS);
-					#if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVs.xy);
-					#endif
+					inputData.bakedGI = SAMPLE_GI(input.lightmapUVs.xy, input.lightmapUVs.zw, input.sh, normalWS);
 				#elif defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-				#if !defined(LIGHTMAP_ON) && (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2))
-    				inputData.bakedGI = SAMPLE_GI(input.sh,
-					GetAbsolutePositionWS(inputData.positionWS),
-					inputData.normalWS,
-					inputData.viewDirectionWS,
-					input.positionCS.xy,
-					input.probeOcclusion,
-					inputData.shadowMask);
-				#else
 					inputData.bakedGI = SAMPLE_GI(input.lightmapUVs.xy, half3(input.sh), normalWS);
-					#if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVs.xy);
-					#endif
 				#endif
+
+				#if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
+					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVs.xy);
 				#endif
 
 				#if defined(DEBUG_DISPLAY)
@@ -2289,9 +2404,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 						inputData.staticLightmapUV = input.lightmapUVs.xy;
 					#elif defined(VARYINGS_NEED_SH)
 						inputData.vertexSH = input.sh;
-					#endif
-					#if defined(USE_APV_PROBE_OCCLUSION)
-						inputData.probeOcclusion = input.probeOcclusion;
 					#endif
 				#endif
 
@@ -2401,7 +2513,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 					half3 normalWS = half3(LoadSceneNormals(packedInput.positionCS.xy));
 				#endif
 
-				float2 positionSS = FoveatedRemapNonUniformToLinearCS(packedInput.positionCS.xy) * _ScreenSize.zw;
+				
+
+				
+				#if ASE_SRP_VERSION >=140011
+					float2 positionSS = FoveatedRemapNonUniformToLinearCS(packedInput.positionCS.xy) * _ScreenSize.zw;
+				#endif
+			
 
 				float3 positionWS = packedInput.positionWS.xyz;
 				half3 viewDirectionWS = half3(packedInput.viewDirectionWS);
@@ -2467,7 +2585,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
 				GetSurfaceData(packedInput, surfaceDescription, surfaceData);
 
-				half3 normalToPack = surfaceData.normalWS.xyz;
 				#ifdef DECAL_RECONSTRUCT_NORMAL
 					surfaceData.normalWS.xyz = normalize(lerp(normalWS.xyz, surfaceData.normalWS.xyz, surfaceData.normalWS.w));
 				#endif
@@ -2481,6 +2598,8 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				half4 color = UniversalFragmentPBR(inputData, surface);
 				color.rgb = MixFog(color.rgb, inputData.fogCoord);
 				outColor = color;
+
+				
 
 			}
             ENDHLSL
@@ -2510,7 +2629,7 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#define _MATERIAL_AFFECTS_NORMAL_BLEND 1
 			#define  _MATERIAL_AFFECTS_MAOS 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 
 
 			#pragma vertex Vert
@@ -2522,9 +2641,14 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#pragma multi_compile _ LIGHTMAP_ON
 			#pragma multi_compile _ DYNAMICLIGHTMAP_ON
 			#pragma multi_compile _ DIRLIGHTMAP_COMBINED
-			#pragma multi_compile _ USE_LEGACY_LIGHTMAPS
 			#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+
+			
+
+			
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+           
+
 			#pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
 			#pragma multi_compile _ _MIXED_LIGHTING_SUBTRACTIVE
 			#pragma multi_compile _DECAL_NORMAL_BLEND_LOW _DECAL_NORMAL_BLEND_MEDIUM _DECAL_NORMAL_BLEND_HIGH
@@ -2534,7 +2658,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             #define ATTRIBUTES_NEED_NORMAL
             #define ATTRIBUTES_NEED_TANGENT
@@ -2555,18 +2678,39 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
             #define SHADERPASS SHADERPASS_DECAL_GBUFFER_MESH
 
+			#if _RENDER_PASS_ENABLED
+			#define GBUFFER3 0
+			#define GBUFFER4 1
+			FRAMEBUFFER_INPUT_HALF(GBUFFER3);
+			FRAMEBUFFER_INPUT_HALF(GBUFFER4);
+			#endif
+
+			
+
+			
+            #if ASE_SRP_VERSION >=140007
 			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+			#endif
+		
+
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
             #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
-			#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DecalInput.hlsl"
@@ -2575,13 +2719,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(LOD_FADE_CROSSFADE)
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
             #endif
-
-			#if _RENDER_PASS_ENABLED
-			#define GBUFFER3 0
-			#define GBUFFER4 1
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER3);
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER4);
-			#endif
 
 			#define ASE_NEEDS_TEXTURE_COORDINATES0
 			#define ASE_NEEDS_FRAG_TEXTURE_COORDINATES0
@@ -2623,9 +2760,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				float4 lightmapUVs : TEXCOORD5; // @diogo: packs both static (xy) and dynamic (zw)
 				float3 sh : TEXCOORD6;
 				float4 fogFactorAndVertexLight : TEXCOORD7;
-				#ifdef USE_APV_PROBE_OCCLUSION
-					float4 probeOcclusion : TEXCOORD10;
-				#endif
 				
 				UNITY_VERTEX_INPUT_INSTANCE_ID
 				UNITY_VERTEX_OUTPUT_STEREO
@@ -2643,7 +2777,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(DECAL_ANGLE_FADE)
 			float _DecalAngleFadeSupported;
 			#endif
-			UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 			CBUFFER_END
 
             #ifdef SCENEPICKINGPASS
@@ -2688,9 +2821,18 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
                 #if (SHADERPASS == SHADERPASS_DBUFFER_PROJECTOR) || (SHADERPASS == SHADERPASS_DECAL_SCREEN_SPACE_PROJECTOR) || (SHADERPASS == SHADERPASS_DECAL_GBUFFER_PROJECTOR)
                     #if defined(_MATERIAL_AFFECTS_NORMAL)
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(mul((half3x3)normalToWorld, surfaceDescription.NormalTS.xyz));
+					
+
                     #else
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(normalToWorld[2].xyz);
+					
                     #endif
                 #elif (SHADERPASS == SHADERPASS_DBUFFER_MESH) || (SHADERPASS == SHADERPASS_DECAL_SCREEN_SPACE_MESH) || (SHADERPASS == SHADERPASS_DECAL_GBUFFER_MESH)
                     #if defined(_MATERIAL_AFFECTS_NORMAL)
@@ -2699,7 +2841,11 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
                         half3x3 tangentToWorld = half3x3(input.tangentWS.xyz, bitangent.xyz, input.normalWS.xyz);
                         surfaceData.normalWS.xyz = normalize(TransformTangentToWorld(surfaceDescription.NormalTS, tangentToWorld));
                     #else
+					    
+
+						
 						surfaceData.normalWS.xyz = normalize(half3(input.normalWS));
+					
                     #endif
                 #endif
 
@@ -2787,25 +2933,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				#endif
 
 				#if defined(VARYINGS_NEED_DYNAMIC_LIGHTMAP_UV) && defined(DYNAMICLIGHTMAP_ON)
-					inputData.bakedGI = SAMPLE_GI(input.lightmapUVs.xy, input.lightmapUVs.zw, half3(input.sh), normalWS);
-					#if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVs.xy);
-					#endif
+					inputData.bakedGI = SAMPLE_GI(input.lightmapUVs.xy, input.lightmapUVs.zw, input.sh, normalWS);
 				#elif defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-				#if !defined(LIGHTMAP_ON) && (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2))
-    				inputData.bakedGI = SAMPLE_GI(input.sh,
-					GetAbsolutePositionWS(inputData.positionWS),
-					inputData.normalWS,
-					inputData.viewDirectionWS,
-					input.positionCS.xy,
-					input.probeOcclusion,
-					inputData.shadowMask);
-				#else
 					inputData.bakedGI = SAMPLE_GI(input.lightmapUVs.xy, half3(input.sh), normalWS);
-					#if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVs.xy);
-					#endif
 				#endif
+
+				#if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
+					inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUVs.xy);
 				#endif
 
 				#if defined(DEBUG_DISPLAY)
@@ -2816,9 +2950,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 						inputData.staticLightmapUV = input.lightmapUVs.xy;
 					#elif defined(VARYINGS_NEED_SH)
 						inputData.vertexSH = input.sh;
-					#endif
-					#if defined(USE_APV_PROBE_OCCLUSION)
-						inputData.probeOcclusion = input.probeOcclusion;
 					#endif
 				#endif
 
@@ -2929,7 +3060,13 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				half3 normalWS = half3(LoadSceneNormals(packedInput.positionCS.xy));
 			#endif
 
-				float2 positionSS = FoveatedRemapNonUniformToLinearCS(packedInput.positionCS.xy) * _ScreenSize.zw;
+				
+
+				
+				#if ASE_SRP_VERSION >=140011
+					float2 positionSS = FoveatedRemapNonUniformToLinearCS(packedInput.positionCS.xy) * _ScreenSize.zw;
+				#endif
+			
 
 				float3 positionWS = packedInput.positionWS.xyz;
 				half3 viewDirectionWS = half3(packedInput.viewDirectionWS);
@@ -3023,12 +3160,12 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 				fragmentOutput.GBuffer1 = 0;
 				fragmentOutput.GBuffer2 = half4(packedNormalWS, surfaceData.normalWS.a);
 				fragmentOutput.GBuffer3 = half4(surfaceData.emissive + color, surfaceData.baseColor.a);
-
 				#if OUTPUT_SHADOWMASK
 					fragmentOutput.GBuffer4 = inputData.shadowMask;
 				#endif
-
 				#pragma warning (default : 3578) // Restore output value isn't completely initialized.
+
+				
 
 			}
 
@@ -3051,7 +3188,7 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#define _MATERIAL_AFFECTS_NORMAL_BLEND 1
 			#define  _MATERIAL_AFFECTS_MAOS 1
 			#define ASE_VERSION 19904
-			#define ASE_SRP_VERSION 170004
+			#define ASE_SRP_VERSION 140012
 
 
 			#pragma multi_compile_instancing
@@ -3061,7 +3198,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
-			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             #define HAVE_MESH_MODIFICATION
 
@@ -3071,8 +3207,8 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if _RENDER_PASS_ENABLED
 			#define GBUFFER3 0
 			#define GBUFFER4 1
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER3);
-			FRAMEBUFFER_INPUT_X_HALF(GBUFFER4);
+			FRAMEBUFFER_INPUT_HALF(GBUFFER3);
+			FRAMEBUFFER_INPUT_HALF(GBUFFER4);
 			#endif
 
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
@@ -3081,9 +3217,17 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Input.hlsl"
 			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureStack.hlsl"
+
+			
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
+           
+
+			
+            #if ASE_SRP_VERSION >=140009
             #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
-			#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DebugMipmapStreamingMacros.hlsl"
+			#endif
+		
+
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/ShaderPass.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DecalInput.hlsl"
@@ -3121,7 +3265,6 @@ Shader  "AmplifyShaderPack/Decal Muddy Ground"
 			#if defined(DECAL_ANGLE_FADE)
 			float _DecalAngleFadeSupported;
 			#endif
-			UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 			CBUFFER_END
 
             #ifdef SCENEPICKINGPASS
@@ -3309,4 +3452,4 @@ WireConnection;2;5;11;2
 WireConnection;2;6;12;0
 WireConnection;2;7;9;4
 ASEEND*/
-//CHKSM=3AAB7557188E3579983EA6AB6CB90E97F0E45BC4
+//CHKSM=C8BF3D3193468C1AC2B2505264D0DB5FB569D3EE

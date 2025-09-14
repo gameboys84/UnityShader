@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: CullOutline
+  m_Shader: {fileID: 4800000, guid: ac1d632f2ae2db84586dc494d167e795, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _GLOSSYREFLECTIONS_OFF
+  - _SPECULARHIGHLIGHTS_OFF
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BumpMap:
+        m_Texture: {fileID: 2800000, guid: b36d82dce1944357b33e03f7e2975b06, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 2800000, guid: 359c4962c0a3407eb969c1d9eeb6426b, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _texcoord:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _BumpScale: 1
+    - _Cull: 2
+    - _DistanceCutoff: 0
+    - _GlossyReflections: 0
+    - _OutlineDistanceCutoff: 1
+    - _OutlineDistanceFade1: 25
+    - _OutlineThickness1: 0.034
+    - _OutlineToggle: 1
+    - _OutlineWidth: 0.02
+    - _OutlineWidth1: 0.0178
+    - _SpecularHighlights: 0
+    m_Colors:
+    - _Color0: {r: 0.9575472, g: 0.5345536, b: 0, a: 0}
+    - _OutlineColor: {r: 0.9339623, g: 0.004405493, b: 0.004405493, a: 0}
+    - _OutlineColor1: {r: 1, g: 0, b: 0, a: 0}
+  m_BuildTextureStacks: []
